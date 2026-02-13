@@ -1,5 +1,6 @@
 # Ignorer le dossier de compilation (créé via mkdir build)
 build/
+check
 
 # Ignorer les fichiers générés par Flex/Bison (si jamais ils atterrissent à la racine)
 *.lex.c

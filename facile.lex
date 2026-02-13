@@ -22,6 +22,19 @@
 #define TOK_PARENTHESIS_R 271
 
 #define TOK_DOUBLE_QUOTE 272
+#define TOK_ELSE 273
+#define TOK_ELSEIF 274
+#define TOK_WHILE 275
+#define TOK_DO 276
+#define TOK_ENDWHILE 277
+#define TOK_CODE_WHILE 278
+#define TOK_PRINT 279
+#define TOK_READ 280
+#define TOK_END 281
+#define TOK_ENDIF 282
+#define TOK_CONTINUE 283
+#define TOK_BREAK 284
+
 %}
 
 %option noyywrap
@@ -29,88 +42,149 @@
 %%
 if {
     // assert(printf("'if' found"));
-    assert(printf("TOK_IF"));
+    assert(printf("TOK_IF\n"));
     return TOK_IF;
 }
 
 then {
     // assert(printf("'then' found"));
-    assert(printf("TOK_THEN"));
+    assert(printf("TOK_THEN\n"));
     return TOK_THEN;
 }
 
 ";" {
     // assert(printf("';' found"));
-    assert(printf("TOK_SEMI_COLON"));
+    assert(printf("TOK_SEMI_COLON\n"));
     return TOK_SEMI_COLON;
 }
 
 ":=" {
     // assert(printf("':=' found"));
-    assert(printf("TOK_AFFECTATION"));
+    assert(printf("TOK_AFFECTATION\n"));
     return TOK_AFFECTATION;
 }
 
 "+" {
     // assert(printf("'+' found"));
-    assert(printf("TOK_ADD"));
+    assert(printf("TOK_ADD\n"));
     return TOK_ADD;
 }
 
 "-" {
     // assert(printf("'-' found"));
-    assert(printf("TOK_SUB"));
+    assert(printf("TOK_SUB\n"));
     return TOK_SUB;
 }
 
 "*" {
     // assert(printf("'*' found"));
-    assert(printf("TOK_MUL"));
+    assert(printf("TOK_MUL\n"));
     return TOK_MUL;
 }
 
 "/" {
     // assert(printf("'/' found"));
-    assert(printf("TOK_DIV"));
+    assert(printf("TOK_DIV\n"));
     return TOK_DIV;
 }
 
 "(" {
-    assert(printf("TOK_PARENTHESIS_L"));
+    assert(printf("TOK_PARENTHESIS_L\n"));
     return TOK_PARENTHESIS_L;
 }
 
 ")" {
-    assert(printf("TOK_PARENTHESIS_R"));
+    assert(printf("TOK_PARENTHESIS_R\n"));
     return TOK_PARENTHESIS_R;
 }
 
 "{" {
-    assert(printf("TOK_CURLY_BRACE_L"));
+    assert(printf("TOK_CURLY_BRACE_L\n"));
     return TOK_CURLY_BRACE_L;
 }
 
 "}" {
-    assert(printf("TOK_CURLY_BRACE_R"));
+    assert(printf("TOK_CURLY_BRACE_R\n"));
     return TOK_CURLY_BRACE_R;
 }
 
 "\"" {
-    assert(printf("TOK_DOUBLE_QUOTE"));
+    assert(printf("TOK_DOUBLE_QUOTE\n"));
     return TOK_DOUBLE_QUOTE;
 }
 
+"else" {
+    assert(printf("TOK_ELSE\n"));
+    return TOK_ELSE;
+}
+
+"elseif" {
+    assert(printf("TOK_ELSEIF\n"));
+    return TOK_ELSEIF;
+}
+
+"while" {
+    assert(printf("TOK_WHILE\n"));
+    return TOK_WHILE;
+}
+
+"do" {
+    assert(printf("TOK_DO\n"));
+    return TOK_DO;
+}
+
+"endwhile" {
+    assert(printf("TOK_ENDWHILE\n"));
+    return TOK_ENDWHILE;
+}
+
+"code_while" {
+    assert(printf("TOK_CODE_WHILE\n"));
+    return TOK_CODE_WHILE;
+}
+
+"print" {
+    assert(printf("TOK_PRINT\n"));
+    return TOK_PRINT;
+}
+
+"read" {
+    assert(printf("TOK_READ\n"));
+    return TOK_READ;
+}
+
+"end" {
+    assert(printf("TOK_END\n"));
+    return TOK_END;
+}
+
+"endif" {
+    assert(printf("TOK_ENDIF\n"));
+    return TOK_ENDIF;
+}
+
+"continue" {
+    assert(printf("TOK_CONTINUE\n"));
+    return TOK_CONTINUE;
+}
 
 [0-9]+ {
     // assert(printf(" %d found", atoi(yytext)));
-    assert(printf("TOK_INTEGER"));
+    assert(printf("TOK_INTEGER\n"));
     return TOK_INTEGER;
 }
 
 [a-zA-Z][a-zA-Z0-9_]* {
     // assert(printf("%s found", yytext));
-    assert(printf("TOK_IDENTIFIER"));
+    // assert(printf("identifier '%s(%d)' found", yytext, yyleng));
+    assert(printf("TOK_IDENTIFIER\n"));
     return TOK_IDENTIFIER;
+}
+
+[ \t\n] ;
+
+. {
+    return yytext[0];
 }
 
 %%
