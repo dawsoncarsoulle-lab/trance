@@ -1,0 +1,8 @@
+hell0_world() {
+    return "Hello world";
+}
+
+addition(int a,int b) {
+    int c := a + b;
+    return c;
+}
