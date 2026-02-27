@@ -21,3 +21,17 @@ ge(int a, int b) int {
     if a > b then return a
     return b
 }
+
+elseifStatement(int a, int b) {
+    elseif a < b then print(a)
+}
+
+elseStatement(int  a) {
+    else print(a)
+}
+
+whileLoop (int a) {
+    while a < 10 do
+      a += 1
+    end
+}
