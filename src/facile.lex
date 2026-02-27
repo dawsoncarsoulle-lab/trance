@@ -31,8 +31,21 @@
 "end" {return END;}
 "endif" {return ENDIF;}
 "continue" {return CONTINUE;}
+"break" {return BREAK;}
 "print" {return PRINT;}
 "read" {return READ;}
+"not" {return NOT;}
+"and" {return AND;}
+"or" {return OR;}
+"true" {return TRUE;}
+"false" {return FALSE;}
+">" {return GREATER_THAN;}
+">=" {return GREATER_EQUALS;}
+"<" {return LESSER_THAN;}
+"<=" {return LESSER_EQUALS;}
+"=" {return EQUALS;}
+"#" {return HASH;}
+
 
 [0-9]+ {
     yylval.integer = atoi(yytext);
