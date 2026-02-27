@@ -1,22 +1,11 @@
-# Ignorer le dossier de compilation (créé via mkdir build)
-build/
-check
-
-# Ignorer les fichiers générés par Flex/Bison (si jamais ils atterrissent à la racine)
-*.lex.c
-*.y.c
-*.y.h
-*.output
+# Ignorer les fichiers générés par Flex/Bison
+*.tab.c
+*.tab.h
+*.yy.c
 
 # Ignorer l'exécutable final
 facile
 facile.exe
-
-# Ignorer les fichiers temporaires et caches
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
 
 # Ignorer les fichiers systèmes ou IDE
 .DS_Store
