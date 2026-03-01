@@ -1,10 +1,17 @@
 %{
     #include <stdio.h>
+    #include <glib.h>
+    #define CODEGEN_IMPLEMENTATION
+    #include "codegen.h"
+
+    GNode *ast_root_node = NULL;
+    GHashTable *table = NULL;
 %}
 
 %union {
     int integer;
     char * identifier;
+    GNode * node;
 }
 
 
@@ -14,7 +21,20 @@
 %token IF THEN ELSE ELSEIF END ENDIF WHILE DO ENDWHILE CONTINUE BREAK
 DOUBLE_QUOTE SEMICOLON ADD SUB MUL DIV CURLY_BRACE_L CURLY_BRACE_R
 PARENTHESIS_L PARENTHESIS_R AFFECTATION PRINT READ NOT AND OR GREATER_THAN
-LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
+LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
+
+// mirror node enum found in codegen.h
+// syntax transformation example: identifier -> NODE_IDENTIFIER
+%type<node> identifier
+%type<node> number
+%type<node> add
+%type<node> sub
+%type<node> mul
+%type<node> div
+
+%type<node> program block instruction expr boolean
+%type<node> if_statement else_if_statement while_statement
+%type<node> read_call print_call affectation
 
 
 %left OR
@@ -26,13 +46,16 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
 %right NOT
 
 %%
-    /*
-        base "nothing" case handled by program reader parent
-    */
-    program: block
-        ;
+    /* The initial block is the one from which the program is created and is thus the root, see pre-code section */
+    program: block { ast_root_node = $1; };
+
     block:
-        | block instruction
+        { $$ = NULL; }
+        | block instruction {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_BLOCK));
+            if ($1 != NULL) g_node_append($$, $1);
+            g_node_append($$, $2);
+        }
         ;
 
     instruction:
@@ -46,13 +69,27 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
         ;
 
     expr:
-        INTEGER
-        | IDENTIFIER
-        | expr MUL expr
-        | expr DIV expr
-        | expr ADD expr
-        | expr SUB expr
-        | PARENTHESIS_L expr PARENTHESIS_R
+        INTEGER {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_NUMBER));
+            g_node_append_data($$, GINT_TO_POINTER($1));
+        }
+        | IDENTIFIER {
+            gulong value = (gulong) g_hash_table_lookup(table, $1);
+            if (!value) {
+                char error_msg[256];
+                snprintf(error_msg, sizeof(error_msg), "Error: Undeclared variable '%s' in expression", $1);
+                yyerror(error_msg);
+                YYABORT;
+            }
+
+            $$ = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
+            g_node_append_data($$, (gpointer)value);
+        }
+        | expr ADD expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_ADD)); g_node_append($$, $1); g_node_append($$, $3); }
+        | expr SUB expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_SUB)); g_node_append($$, $1); g_node_append($$, $3); }
+        | expr MUL expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_MUL)); g_node_append($$, $1); g_node_append($$, $3); }
+        | expr DIV expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_DIV)); g_node_append($$, $1); g_node_append($$, $3); }
+        | PARENTHESIS_L expr PARENTHESIS_R { $$ = $2; }
         ;
 
     if_statement:
@@ -78,8 +115,8 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
         ;
 
     boolean:
-        TRUE
-        | FALSE
+        _TRUE
+        | _FALSE
         | NOT boolean
         | expr HASH expr
         | expr EQUALS expr
@@ -92,16 +129,77 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
         | PARENTHESIS_L boolean PARENTHESIS_R
         ;
 
-    read_call: READ IDENTIFIER SEMICOLON;
-    print_call: PRINT IDENTIFIER SEMICOLON;
-    affectation: IDENTIFIER AFFECTATION expr SEMICOLON;
+    read_call: READ IDENTIFIER SEMICOLON {
+        gulong value = (gulong) g_hash_table_lookup(table, $2);
+        if (!value) {
+            char error_msg[256];
+            snprintf(error_msg, sizeof(error_msg), "Error: Use of undeclared variable '%s' in 'read' call", $2);
+            yyerror(error_msg);
+            YYABORT;
+        }
+        $$ = g_node_new(GINT_TO_POINTER(NODE_READ));
+        g_node_append($$, $2);
+    };
+    print_call: PRINT IDENTIFIER SEMICOLON {
+        gulong value = (gulong) g_hash_table_lookup(table, $2);
+        if (!value) {
+            char error_msg[256];
+            snprintf(error_msg, sizeof(error_msg), "Error: Use of undeclared variable '%s' in 'print' call", $2);
+            yyerror(error_msg);
+            YYABORT;
+        }
+
+        $$ = g_node_new(GINT_TO_POINTER(NODE_PRINT));
+        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
+        g_node_append_data(id_node, (gpointer)value);
+        g_node_append($$, id_node);
+    };
+    affectation: IDENTIFIER AFFECTATION expr SEMICOLON {
+        $$ = g_node_new(GINT_TO_POINTER(NODE_AFFECTATION));
+
+        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
+        gulong value = (gulong) g_hash_table_lookup(table, $1);
+        if (!value) {
+            value = g_hash_table_size(table) + 1;
+            g_hash_table_insert(table, strdup($1), (gpointer) value);
+        }
+        g_node_append_data(id_node, (gpointer)value);
+
+        g_node_append($$, id_node);
+        g_node_append($$, $3);
+    };
 
 %%
 
+extern char *yytext;
+extern int yylineno;
+
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
+    fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\n", yylineno, yytext);
 }
 
 int main() {
-    return yyparse();
+
+    table = g_hash_table_new(g_str_hash, g_str_equal);
+
+    if (yyparse() == 0) {
+        CodeGenContext ctx;
+        ctx.stream = fopen("facile.il", "w");
+        if (ctx.stream == NULL) {
+            fprintf(stderr, "Error: Failed to open facile.il for writing.\n");
+            return 1;
+        }
+        guint local_count = g_hash_table_size(table);
+        begin_code(&ctx, local_count);
+        produce_code(&ctx, ast_root_node);
+        end_code(&ctx);
+
+        fclose(ctx.stream);
+        if (ast_root_node != NULL) g_node_destroy(ast_root_node);
+
+    } else {
+        printf("Compilation failed due to syntax errors.\n");
+        return 1;
+    }
+    return 0;
 }

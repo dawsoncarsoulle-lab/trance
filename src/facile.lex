@@ -1,12 +1,13 @@
 %{
 #include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#include <string.h>
+#include <glib.h>
 #include "facile.tab.h"
 
 %}
 
 %option noyywrap
+%option yylineno
 
 %%
 
@@ -37,8 +38,8 @@
 "not" {return NOT;}
 "and" {return AND;}
 "or" {return OR;}
-"true" {return TRUE;}
-"false" {return FALSE;}
+"true" {return _TRUE;}
+"false" {return _FALSE;}
 ">" {return GREATER_THAN;}
 ">=" {return GREATER_EQUALS;}
 "<" {return LESSER_THAN;}
