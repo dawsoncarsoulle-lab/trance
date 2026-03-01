@@ -6,6 +6,7 @@
 # Ignorer l'exécutable final
 facile
 facile.exe
+facile.il
 
 # Ignorer les fichiers systèmes ou IDE
 .DS_Store

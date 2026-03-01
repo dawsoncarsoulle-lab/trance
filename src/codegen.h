@@ -24,7 +24,7 @@ void end_code(CodeGenContext *ctx);
 #define BINARY_OPERATION_NODES(ctx, operation) {     \
     produce_code(ctx, g_node_nth_child(node, 0));    \
     produce_code(ctx, g_node_nth_child(node, 1));    \
-    fprintf(ctx->stream, " %s\n", operation);        \
+    fprintf(ctx->stream, "\t%s\n", operation);        \
 }
 
 typedef enum {
@@ -64,7 +64,6 @@ void begin_code(CodeGenContext *ctx, guint local_count) {
 
 void produce_code(CodeGenContext *ctx, GNode* node) {
     if (node == NULL) return;
-
     ASTNodeType node_type = (ASTNodeType)GPOINTER_TO_INT(node->data);
     switch(node_type) {
         case NODE_BLOCK:
@@ -73,22 +72,22 @@ void produce_code(CodeGenContext *ctx, GNode* node) {
         break;
         case NODE_AFFECTATION:
             produce_code(ctx, g_node_nth_child(node, 1));
-            fprintf(ctx->stream, " stloc\t%ld\n", (long)g_node_nth_child(g_node_nth_child(node, 0), 0)->data - 1);
+            fprintf(ctx->stream, "\tstloc\t%ld\n", (long)g_node_nth_child(g_node_nth_child(node, 0), 0)->data - 1);
         break;
         case NODE_ADD: BINARY_OPERATION_NODES(ctx, "add"); break;
         case NODE_SUB: BINARY_OPERATION_NODES(ctx, "sub"); break;
         case NODE_MUL: BINARY_OPERATION_NODES(ctx, "mul"); break;
         case NODE_DIV: BINARY_OPERATION_NODES(ctx, "div"); break;
-        case NODE_NUMBER:       fprintf(ctx->stream, " ldc.i4\t%ld\n", (long)g_node_nth_child(node, 0)->data);      break;
-        case NODE_IDENTIFIER:   fprintf(ctx->stream, " ldloc\t%ld\n", (long)g_node_nth_child(node, 0)->data - 1);   break;
+        case NODE_NUMBER:       fprintf(ctx->stream, "\tldc.i4\t%ld\n", (long)g_node_nth_child(node, 0)->data);      break;
+        case NODE_IDENTIFIER:   fprintf(ctx->stream, "\tldloc\t%ld\n", (long)g_node_nth_child(node, 0)->data - 1);   break;
         case NODE_PRINT:
             produce_code(ctx, g_node_nth_child(node, 0));
-            fprintf(ctx->stream, " call void class [mscorlib]System.Console::WriteLine(int32)\n");
+            fprintf(ctx->stream, "\tcall void class [mscorlib]System.Console::WriteLine(int32)\n");
         break;
         case NODE_READ:
-            fprintf(ctx->stream, " call string class [mscorlib]System.Console::ReadLine()\n");
-            fprintf(ctx->stream, " call int32 int32::Parse(string)\n");
-            fprintf(ctx->stream, " stloc\t%ld\n", (long)g_node_nth_child(g_node_nth_child(node, 0), 0)->data - 1);
+            fprintf(ctx->stream, "\tcall string class [mscorlib]System.Console::ReadLine()\n");
+            fprintf(ctx->stream, "\tcall int32 int32::Parse(string)\n");
+            fprintf(ctx->stream, "\tstloc\t%ld\n", (long)g_node_nth_child(g_node_nth_child(node, 0), 0)->data - 1);
         break;
         default: fprintf(ctx->stream, "ERROR: unknown token"); break;
     }
@@ -96,7 +95,7 @@ void produce_code(CodeGenContext *ctx, GNode* node) {
 
 void end_code(CodeGenContext *ctx) {
     fprintf(ctx->stream,
-        "ret"
+        "\tret\n"
         "}\n");
 }
 
