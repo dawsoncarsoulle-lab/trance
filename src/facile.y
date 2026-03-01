@@ -17,18 +17,22 @@ PARENTHESIS_L PARENTHESIS_R AFFECTATION PRINT READ NOT AND OR GREATER_THAN
 LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
 
 
-// added but has not relation in language to the precedence of math operators
-%left HASH EQUALS GREATER_EQUALS LESSER_EQUALS LESSER_THAN GREATER_THAN NOT OR AND
-
+%left OR
+%left AND
+%left EQUALS HASH
+%left LESSER_THAN GREATER_THAN LESSER_EQUALS GREATER_EQUALS
 %left ADD SUB
-%left MUL DIV // mul div are "greedy"
+%left MUL DIV
+%right NOT
 
 %%
     /*
         base "nothing" case handled by program reader parent
     */
-    program:
-        | program instruction
+    program: block
+        ;
+    block:
+        | block instruction
         ;
 
     instruction:
@@ -37,6 +41,8 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
         | affectation
         | if_statement
         | while_statement
+        | BREAK SEMICOLON
+        | CONTINUE SEMICOLON
         ;
 
     expr:
@@ -50,30 +56,26 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
         ;
 
     if_statement:
-        IF boolean THEN instruction END
-        | IF boolean THEN instruction ENDIF
-        | IF boolean THEN else_if_statement ELSE instruction END
-        | IF boolean THEN else_if_statement ELSE instruction ENDIF
+        IF boolean THEN block END
+        | IF boolean THEN block ENDIF
+        | IF boolean THEN block ELSE block END
+        | IF boolean THEN block ELSE block ENDIF
+        | IF boolean THEN else_if_statement END
+        | IF boolean THEN else_if_statement ENDIF
+        | IF boolean THEN else_if_statement ELSE block END
+        | IF boolean THEN else_if_statement ELSE block ENDIF
         ;
 
     else_if_statement:
-        ELSEIF boolean THEN instruction
-        | else_if_statement ELSEIF boolean THEN instruction
+        ELSEIF boolean THEN block
+        | else_if_statement ELSEIF boolean THEN block
         ;
 
 
     while_statement:
-        WHILE boolean DO instruction END
-        | WHILE boolean DO instruction ENDWHILE
-        | WHILE boolean DO code_while_statement END
-        | WHILE boolean DO code_while_statement ENDWHILE
+        WHILE boolean DO block END
+        | WHILE boolean DO block ENDWHILE
         ;
-
-    code_while_statement:
-        |  BREAK code_while_statement
-        |  CONTINUE code_while_statement
-        ;
-
 
     boolean:
         TRUE
@@ -92,7 +94,7 @@ LESSER_THAN HASH EQUALS FALSE TRUE GREATER_EQUALS LESSER_EQUALS
 
     read_call: READ IDENTIFIER SEMICOLON;
     print_call: PRINT IDENTIFIER SEMICOLON;
-    affectation: IDENTIFIER AFFECTATION IDENTIFIER SEMICOLON;
+    affectation: IDENTIFIER AFFECTATION expr SEMICOLON;
 
 %%
 
