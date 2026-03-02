@@ -1,9 +1,2 @@
-
-
 test:
-	../build/facile < test.txt
-	ilasm facile.il
-	mono facile.exe
-
-clean:
-	@rm -f *.exe
+	@hare test 2>/dev/null

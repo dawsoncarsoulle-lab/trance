@@ -14,6 +14,7 @@
     GNode * node;
 }
 
+%define parse.trace
 
 %token <integer> INTEGER;
 %token <identifier> IDENTIFIER;
@@ -81,7 +82,6 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
                 yyerror(error_msg);
                 YYABORT;
             }
-
             $$ = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
             g_node_append_data($$, (gpointer)value);
         }
@@ -92,15 +92,22 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
         | PARENTHESIS_L expr PARENTHESIS_R { $$ = $2; }
         ;
 
+    if_ender: END | ENDIF;
+
     if_statement:
-        IF boolean THEN block END
-        | IF boolean THEN block ENDIF
-        | IF boolean THEN block ELSE block END
-        | IF boolean THEN block ELSE block ENDIF
-        | IF boolean THEN else_if_statement END
-        | IF boolean THEN else_if_statement ENDIF
-        | IF boolean THEN else_if_statement ELSE block END
-        | IF boolean THEN else_if_statement ELSE block ENDIF
+        IF boolean THEN block if_ender {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
+            g_node_append($$, $2);
+            g_node_append($$, $4);
+        }
+        | IF boolean THEN block ELSE block if_ender {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
+                g_node_append($$, $2);
+                g_node_append($$, $4);
+                g_node_append($$, $6);
+        }
+        | IF boolean THEN else_if_statement if_ender
+        | IF boolean THEN else_if_statement ELSE block if_ender
         ;
 
     else_if_statement:
@@ -108,22 +115,40 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
         | else_if_statement ELSEIF boolean THEN block
         ;
 
+    while_ender: END | ENDWHILE;
 
-    while_statement:
-        WHILE boolean DO block END
-        | WHILE boolean DO block ENDWHILE
-        ;
+    while_statement: WHILE boolean DO block while_ender {
+        $$ = g_node_new(GINT_TO_POINTER(NODE_WHILE_STATEMENT));
+        g_node_append($$, $2);
+        g_node_append($$, $4);
+    };
 
     boolean:
         _TRUE
         | _FALSE
         | NOT boolean
-        | expr HASH expr
-        | expr EQUALS expr
+        | expr HASH expr {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_HASH));
+            g_node_append($$, $1);
+            g_node_append($$, $3);
+        }
+        | expr EQUALS expr {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_EQUALS));
+            g_node_append($$, $1);
+            g_node_append($$, $3);
+        }
         | boolean OR boolean
         | boolean AND boolean
-        | expr LESSER_THAN expr
-        | expr GREATER_THAN expr
+        | expr LESSER_THAN expr {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_LESSER_THAN));
+            g_node_append($$, $1);
+            g_node_append($$, $3);
+        }
+        | expr GREATER_THAN expr  {
+            $$ = g_node_new(GINT_TO_POINTER(NODE_GREATER_THAN));
+            g_node_append($$, $1);
+            g_node_append($$, $3);
+        }
         | expr LESSER_EQUALS expr
         | expr GREATER_EQUALS expr
         | PARENTHESIS_L boolean PARENTHESIS_R
@@ -132,39 +157,28 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
     read_call: READ IDENTIFIER SEMICOLON {
         gulong value = (gulong) g_hash_table_lookup(table, $2);
         if (!value) {
-            char error_msg[256];
-            snprintf(error_msg, sizeof(error_msg), "Error: Use of undeclared variable '%s' in 'read' call", $2);
-            yyerror(error_msg);
-            YYABORT;
-        }
-        $$ = g_node_new(GINT_TO_POINTER(NODE_READ));
-        g_node_append($$, $2);
-    };
-    print_call: PRINT IDENTIFIER SEMICOLON {
-        gulong value = (gulong) g_hash_table_lookup(table, $2);
-        if (!value) {
-            char error_msg[256];
-            snprintf(error_msg, sizeof(error_msg), "Error: Use of undeclared variable '%s' in 'print' call", $2);
-            yyerror(error_msg);
-            YYABORT;
+            value = g_hash_table_size(table) + 1;
+            g_hash_table_insert(table, strdup($2), (gpointer)value);
         }
 
-        $$ = g_node_new(GINT_TO_POINTER(NODE_PRINT));
         GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
         g_node_append_data(id_node, (gpointer)value);
+        $$ = g_node_new(GINT_TO_POINTER(NODE_READ));
         g_node_append($$, id_node);
     };
+    print_call: PRINT expr SEMICOLON {
+        $$ = g_node_new(GINT_TO_POINTER(NODE_PRINT));
+        g_node_append($$, $2);
+    };
     affectation: IDENTIFIER AFFECTATION expr SEMICOLON {
-        $$ = g_node_new(GINT_TO_POINTER(NODE_AFFECTATION));
-
-        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
         gulong value = (gulong) g_hash_table_lookup(table, $1);
         if (!value) {
             value = g_hash_table_size(table) + 1;
             g_hash_table_insert(table, strdup($1), (gpointer) value);
         }
+        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
         g_node_append_data(id_node, (gpointer)value);
-
+        $$ = g_node_new(GINT_TO_POINTER(NODE_AFFECTATION));
         g_node_append($$, id_node);
         g_node_append($$, $3);
     };
@@ -175,15 +189,18 @@ extern char *yytext;
 extern int yylineno;
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\n", yylineno, yytext);
+    fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\nGiven error is : %s\n", yylineno, yytext, s);
 }
 
 int main() {
 
     table = g_hash_table_new(g_str_hash, g_str_equal);
 
+    extern int yydebug;
+    // yydebug = 1;
+
     if (yyparse() == 0) {
-        CodeGenContext ctx;
+        CodeGenContext ctx = {0};
         ctx.stream = fopen("facile.il", "w");
         if (ctx.stream == NULL) {
             fprintf(stderr, "Error: Failed to open facile.il for writing.\n");

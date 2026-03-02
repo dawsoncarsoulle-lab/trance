@@ -12,6 +12,7 @@
 
 typedef struct {
     FILE * stream;
+    int label_count;
 } CodeGenContext;
 
 void begin_code(CodeGenContext *ctx, guint local_count);
@@ -39,6 +40,12 @@ typedef enum {
     NODE_SUB,
     NODE_MUL,
     NODE_DIV,
+    NODE_IF_STATEMENT,
+    NODE_WHILE_STATEMENT,
+    NODE_EQUALS,
+    NODE_HASH,
+    NODE_LESSER_THAN,
+    NODE_GREATER_THAN,
 } ASTNodeType;
 
 
@@ -57,9 +64,51 @@ void begin_code(CodeGenContext *ctx, guint local_count) {
     if (local_count > 0) {
             fprintf(ctx->stream, "    .locals init (\n");
             for (guint i = 0; i < local_count; i++)
-                fprintf(ctx->stream, "        int32 V_%d%s ", i, i, (i == local_count - 1) ? "" : ",");
+                fprintf(ctx->stream, "        int32 V_%d%s ", i, (i == local_count - 1) ? "" : ",");
             fprintf(ctx->stream, "    )\n");
     }
+}
+
+/**
+ * General structure : IF boolean THEN block ELSE block END
+ *                     $1   $2     $3   $4    $5   $6
+ *                           0           1          2
+ */
+void produce_if_statement(CodeGenContext *ctx, GNode *node) {
+    int label_id = ctx->label_count++;
+    GNode *else_node = g_node_nth_child(node, 2);
+
+    produce_code(ctx, g_node_nth_child(node, 0));
+
+    if (else_node) {
+        fprintf(ctx->stream, "\tbrfalse ELSE_%d\n", label_id);
+        produce_code(ctx, g_node_nth_child(node, 1));
+        fprintf(ctx->stream, "\tbr END_%d\n"
+                                   "ELSE_%d:\n", label_id, label_id);
+        produce_code(ctx, else_node);
+    } else {
+        fprintf(ctx->stream, "\tbrfalse END_%d\n", label_id);
+        produce_code(ctx, g_node_nth_child(node, 1));
+    }
+    fprintf(ctx->stream, "END_%d:\n", label_id);
+}
+
+
+/**
+ * General structure : WHILE boolean DO block while_ender
+ *                       $1    $2    $3  $4       $5
+ *                              0         1        2
+ */
+void produce_while_statement(CodeGenContext *ctx, GNode *node) {
+    int label_id = ctx->label_count++;
+
+    fprintf(ctx->stream, "WHILE_%d:\n", label_id);
+    produce_code(ctx, g_node_nth_child(node, 0));
+
+    fprintf(ctx->stream, "\tbrfalse END_%d\n", label_id);
+    produce_code(ctx, g_node_nth_child(node, 1));
+    fprintf(ctx->stream, "\tbr WHILE_%d\n"
+                            "END_%d:\n", label_id, label_id);
 }
 
 void produce_code(CodeGenContext *ctx, GNode* node) {
@@ -78,6 +127,15 @@ void produce_code(CodeGenContext *ctx, GNode* node) {
         case NODE_SUB: BINARY_OPERATION_NODES(ctx, "sub"); break;
         case NODE_MUL: BINARY_OPERATION_NODES(ctx, "mul"); break;
         case NODE_DIV: BINARY_OPERATION_NODES(ctx, "div"); break;
+        case NODE_EQUALS: BINARY_OPERATION_NODES(ctx, "ceq"); break;
+        case NODE_HASH: // double negation proof since no specific instruction
+            BINARY_OPERATION_NODES(ctx, "ceq");             // negation
+            fprintf(ctx->stream, "\tldc.i4 0\n\tceq\n");    // negation with a nneagtive value (0)
+            break;
+        case NODE_LESSER_THAN: BINARY_OPERATION_NODES(ctx, "clt"); break;
+        case NODE_GREATER_THAN: BINARY_OPERATION_NODES(ctx, "cgt"); break;
+        case NODE_IF_STATEMENT: produce_if_statement(ctx, node); break;
+        case NODE_WHILE_STATEMENT: produce_while_statement(ctx, node); break;
         case NODE_NUMBER:       fprintf(ctx->stream, "\tldc.i4\t%ld\n", (long)g_node_nth_child(node, 0)->data);      break;
         case NODE_IDENTIFIER:   fprintf(ctx->stream, "\tldloc\t%ld\n", (long)g_node_nth_child(node, 0)->data - 1);   break;
         case NODE_PRINT:

@@ -1,0 +1,12 @@
+read a;
+read b;
+
+while a # b do
+    if a > b then
+        a := a - b;
+    else
+        b := b - a;
+    endif
+endwhile
+
+print b;

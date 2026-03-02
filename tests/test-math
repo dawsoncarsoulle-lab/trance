@@ -1,0 +1,5 @@
+X := 10;
+Y := 5;
+Z := 2;
+RESULT := (X + Y) * Z - (X / Z);
+print RESULT;

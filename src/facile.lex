@@ -44,7 +44,7 @@
 ">=" {return GREATER_EQUALS;}
 "<" {return LESSER_THAN;}
 "<=" {return LESSER_EQUALS;}
-"=" {return EQUALS;}
+"==" {return EQUALS;}
 "#" {return HASH;}
 
 

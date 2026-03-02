@@ -1,0 +1,2 @@
+read number;
+print number + 10;

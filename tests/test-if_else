@@ -1,0 +1,12 @@
+a := 5;
+b := 3;
+
+if a == 5 then
+    print a;
+    a := a - 1;
+    if a == 5 then
+        print a;
+    else
+        print b;
+    endif
+end
