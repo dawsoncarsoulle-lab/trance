@@ -12,3 +12,5 @@ facile.il
 .DS_Store
 .vscode/
 .idea/
+*.json
+.cache

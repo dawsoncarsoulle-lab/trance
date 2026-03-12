@@ -6,6 +6,18 @@
 
     GNode *ast_root_node = NULL;
     GHashTable *table = NULL;
+
+
+    // parent_node_type found in codegen.h
+    #define PARENT_(parent_node_type) \
+    do { yyval.node = g_node_new(GINT_TO_POINTER(parent_node_type)); } while (0);
+
+    #define _WITH_CHILDREN_BINARY(left, right) \
+    do { g_node_append(yyval.node, left); g_node_append(yyval.node, right); } while (0);
+
+    #define _WITH_CHILDREN_TERNARY(first, second, third) \
+    do { g_node_append(yyval.node, first); g_node_append(yyval.node, second); g_node_append(yyval.node, third); } while (0);
+
 %}
 
 %union {
@@ -85,27 +97,19 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
             $$ = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
             g_node_append_data($$, (gpointer)value);
         }
-        | expr ADD expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_ADD)); g_node_append($$, $1); g_node_append($$, $3); }
-        | expr SUB expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_SUB)); g_node_append($$, $1); g_node_append($$, $3); }
-        | expr MUL expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_MUL)); g_node_append($$, $1); g_node_append($$, $3); }
-        | expr DIV expr     { $$ = g_node_new(GINT_TO_POINTER(NODE_DIV)); g_node_append($$, $1); g_node_append($$, $3); }
+            | expr ADD expr     { PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); }
+            | expr SUB expr     { PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); }
+            | expr MUL expr     { PARENT_(NODE_MUL)_WITH_CHILDREN_BINARY($1, $3); }
+            | expr DIV expr     { PARENT_(NODE_DIV)_WITH_CHILDREN_BINARY($1, $3); }
         | PARENTHESIS_L expr PARENTHESIS_R { $$ = $2; }
         ;
 
     if_ender: END | ENDIF;
 
     if_statement:
-        IF boolean THEN block if_ender {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
-            g_node_append($$, $2);
-            g_node_append($$, $4);
-        }
-        | IF boolean THEN block ELSE block if_ender {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
-                g_node_append($$, $2);
-                g_node_append($$, $4);
-                g_node_append($$, $6);
-        }
+        IF boolean THEN block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); }
+        // maybe shouldn't have the same node, puts too much pressure on codegen
+        | IF boolean THEN block ELSE block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $6); }
         | IF boolean THEN else_if_statement if_ender
         | IF boolean THEN else_if_statement ELSE block if_ender
         ;
@@ -117,41 +121,21 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
 
     while_ender: END | ENDWHILE;
 
-    while_statement: WHILE boolean DO block while_ender {
-        $$ = g_node_new(GINT_TO_POINTER(NODE_WHILE_STATEMENT));
-        g_node_append($$, $2);
-        g_node_append($$, $4);
-    };
+    while_statement: WHILE boolean DO block while_ender { PARENT_(NODE_WHILE_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); };
 
     boolean:
         _TRUE
         | _FALSE
         | NOT boolean
-        | expr HASH expr {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_HASH));
-            g_node_append($$, $1);
-            g_node_append($$, $3);
-        }
-        | expr EQUALS expr {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_EQUALS));
-            g_node_append($$, $1);
-            g_node_append($$, $3);
-        }
-        | boolean OR boolean
-        | boolean AND boolean
-        | expr LESSER_THAN expr {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_LESSER_THAN));
-            g_node_append($$, $1);
-            g_node_append($$, $3);
-        }
-        | expr GREATER_THAN expr  {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_GREATER_THAN));
-            g_node_append($$, $1);
-            g_node_append($$, $3);
-        }
-        | expr LESSER_EQUALS expr
-        | expr GREATER_EQUALS expr
-        | PARENTHESIS_L boolean PARENTHESIS_R
+        | expr HASH expr            { PARENT_(NODE_HASH)            _WITH_CHILDREN_BINARY($1, $3); }
+        | expr EQUALS expr          { PARENT_(NODE_EQUALS)          _WITH_CHILDREN_BINARY($1, $3); }
+        | boolean OR boolean        { PARENT_(NODE_OR)              _WITH_CHILDREN_BINARY($1, $3); }
+        | boolean AND boolean       { PARENT_(NODE_AND)             _WITH_CHILDREN_BINARY($1, $3); }
+        | expr LESSER_THAN expr     { PARENT_(NODE_LESSER_THAN)     _WITH_CHILDREN_BINARY($1, $3); }
+        | expr GREATER_THAN expr    { PARENT_(NODE_GREATER_THAN)    _WITH_CHILDREN_BINARY($1, $3); }
+        | expr LESSER_EQUALS expr   { PARENT_(NODE_LESSER_EQUALS)   _WITH_CHILDREN_BINARY($1, $3); }
+        | expr GREATER_EQUALS expr  { PARENT_(NODE_GREATER_EQUALS)  _WITH_CHILDREN_BINARY($1, $3); }
+        | PARENTHESIS_L boolean PARENTHESIS_R { $$ = $2; }
         ;
 
     read_call: READ IDENTIFIER SEMICOLON {
@@ -163,6 +147,7 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
 
         GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
         g_node_append_data(id_node, (gpointer)value);
+
         $$ = g_node_new(GINT_TO_POINTER(NODE_READ));
         g_node_append($$, id_node);
     };
@@ -178,9 +163,7 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
         }
         GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
         g_node_append_data(id_node, (gpointer)value);
-        $$ = g_node_new(GINT_TO_POINTER(NODE_AFFECTATION));
-        g_node_append($$, id_node);
-        g_node_append($$, $3);
+        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3)
     };
 
 %%

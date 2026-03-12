@@ -40,12 +40,18 @@ typedef enum {
     NODE_SUB,
     NODE_MUL,
     NODE_DIV,
+    // statements
     NODE_IF_STATEMENT,
     NODE_WHILE_STATEMENT,
-    NODE_EQUALS,
+    // boolean
     NODE_HASH,
+    NODE_EQUALS,
+    NODE_OR,
+    NODE_AND,
     NODE_LESSER_THAN,
     NODE_GREATER_THAN,
+    NODE_LESSER_EQUALS,
+    NODE_GREATER_EQUALS,
 } ASTNodeType;
 
 
