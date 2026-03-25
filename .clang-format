@@ -33,10 +33,10 @@ AlignConsecutiveMacros:
   AlignFunctionPointers: false
   PadOperators: false
 AlignConsecutiveShortCaseStatements:
-  Enabled: false
+  Enabled: true
   AcrossEmptyLines: false
   AcrossComments: false
-  AlignCaseColons: false
+  AlignCaseColons: true
 AlignEscapedNewlines: Right
 AlignOperands: Align
 AlignTrailingComments:
@@ -46,7 +46,7 @@ AllowAllArgumentsOnNextLine: true
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowBreakBeforeNoexceptSpecifier: Never
 AllowShortBlocksOnASingleLine: Never
-AllowShortCaseLabelsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
@@ -93,7 +93,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
 BreakStringLiterals: true
-ColumnLimit: 80
+ColumnLimit: 100
 CommentPragmas: "^ IWYU pragma:"
 CompactNamespaces: false
 ConstructorInitializerIndentWidth: 4

@@ -25,11 +25,11 @@ void end_code(CodeGenContext *ctx);
 #ifdef CODEGEN_IMPLEMENTATION
 
 // WARNING: uses emit_op from emitter.h
-#define BINARY_OPERATION_NODES(ctx, operation)                                 \
-  {                                                                            \
-    produce_code(ctx, g_node_nth_child(node, 0));                              \
-    produce_code(ctx, g_node_nth_child(node, 1));                              \
-    emit_op(ctx, operation);                                                   \
+#define BINARY_OPERATION_NODES(ctx, operation)                                                     \
+  {                                                                                                \
+    produce_code(ctx, g_node_nth_child(node, 0));                                                  \
+    produce_code(ctx, g_node_nth_child(node, 1));                                                  \
+    emit_op(ctx, operation);                                                                       \
   }
 
 typedef enum {
@@ -73,8 +73,7 @@ void begin_code(CodeGenContext *ctx, guint local_count) {
   if (local_count > 0) {
     fprintf(ctx->stream, "    .locals init (\n");
     for (guint i = 0; i < local_count; i++)
-      fprintf(ctx->stream, "        int32 V_%d%s ", i,
-              (i == local_count - 1) ? "" : ",");
+      fprintf(ctx->stream, "        int32 V_%d%s ", i, (i == local_count - 1) ? "" : ",");
     fprintf(ctx->stream, "    )\n");
   }
 }
@@ -137,46 +136,24 @@ void produce_code(CodeGenContext *ctx, GNode *node) {
     break;
   case NODE_AFFECTATION:
     produce_code(ctx, g_node_nth_child(node, 1));
-    emit_local_var(
-        ctx, "stloc",
-        GET_VAR_INDEX(g_node_nth_child(g_node_nth_child(node, 0), 0)));
+    emit_local_var(ctx, "stloc", GET_VAR_INDEX(g_node_nth_child(g_node_nth_child(node, 0), 0)));
     break;
-  case NODE_ADD:
-    BINARY_OPERATION_NODES(ctx, "add");
-    break;
-  case NODE_SUB:
-    BINARY_OPERATION_NODES(ctx, "sub");
-    break;
-  case NODE_MUL:
-    BINARY_OPERATION_NODES(ctx, "mul");
-    break;
-  case NODE_DIV:
-    BINARY_OPERATION_NODES(ctx, "div");
-    break;
-  case NODE_EQUALS:
-    BINARY_OPERATION_NODES(ctx, "ceq");
-    break;
-  case NODE_HASH: // double negation proof since no specific instruction
+  case NODE_ADD   : BINARY_OPERATION_NODES(ctx, "add"); break;
+  case NODE_SUB   : BINARY_OPERATION_NODES(ctx, "sub"); break;
+  case NODE_MUL   : BINARY_OPERATION_NODES(ctx, "mul"); break;
+  case NODE_DIV   : BINARY_OPERATION_NODES(ctx, "div"); break;
+  case NODE_EQUALS: BINARY_OPERATION_NODES(ctx, "ceq"); break;
+  case NODE_HASH:                       // double negation proof since no specific instruction
     BINARY_OPERATION_NODES(ctx, "ceq"); // initial negation
     // combo negation 2
     emit_load_int(ctx, 0);
     emit_op(ctx, "ceq");
     break;
-  case NODE_LESSER_THAN:
-    BINARY_OPERATION_NODES(ctx, "clt");
-    break;
-  case NODE_GREATER_THAN:
-    BINARY_OPERATION_NODES(ctx, "cgt");
-    break;
-  case NODE_IF_STATEMENT:
-    produce_if_statement(ctx, node);
-    break;
-  case NODE_WHILE_STATEMENT:
-    produce_while_statement(ctx, node);
-    break;
-  case NODE_NUMBER:
-    emit_load_int(ctx, (int32_t)g_node_nth_child(node, 0)->data);
-    break;
+  case NODE_LESSER_THAN    : BINARY_OPERATION_NODES(ctx, "clt"); break;
+  case NODE_GREATER_THAN   : BINARY_OPERATION_NODES(ctx, "cgt"); break;
+  case NODE_IF_STATEMENT   : produce_if_statement(ctx, node); break;
+  case NODE_WHILE_STATEMENT: produce_while_statement(ctx, node); break;
+  case NODE_NUMBER         : emit_load_int(ctx, (int32_t)g_node_nth_child(node, 0)->data); break;
   case NODE_IDENTIFIER:
     emit_local_var(ctx, "ldloc", GET_VAR_INDEX(g_node_nth_child(node, 0)));
     break;
@@ -187,25 +164,13 @@ void produce_code(CodeGenContext *ctx, GNode *node) {
   case NODE_READ:
     emit_call(ctx, "string class [mscorlib]System.Console::ReadLine()");
     emit_call(ctx, "int32 int32::Parse(string)");
-    emit_local_var(
-        ctx, "stloc",
-        GET_VAR_INDEX(g_node_nth_child(g_node_nth_child(node, 0), 0)));
+    emit_local_var(ctx, "stloc", GET_VAR_INDEX(g_node_nth_child(g_node_nth_child(node, 0), 0)));
     break;
-  case NODE_IF_STATEMENT:
-    produce_if_statement(ctx, node);
-    break;
-  case NODE_WHILE_STATEMENT:
-    produce_while_statement(ctx, node);
-    break;
-  case NODE_BREAK:
-    emit_branch(ctx, "br", "END", ctx->current_loop_label);
-    break;
-  case NODE_CONTINUE:
-    emit_branch(ctx, "br", "WHILE", ctx->current_loop_label);
-    break;
-  default:
-    fprintf(ctx->stream, "ERROR: unknown token");
-    break;
+  case NODE_IF_STATEMENT   : produce_if_statement(ctx, node); break;
+  case NODE_WHILE_STATEMENT: produce_while_statement(ctx, node); break;
+  case NODE_BREAK          : emit_branch(ctx, "br", "END", ctx->current_loop_label); break;
+  case NODE_CONTINUE       : emit_branch(ctx, "br", "WHILE", ctx->current_loop_label); break;
+  default                  : fprintf(ctx->stream, "ERROR: unknown token"); break;
   }
 }
 
