@@ -1,2 +1,3 @@
 test:
-	@hare test 2>/dev/null
+	cc tester.c && ./a.out
+	@rm ./a.out

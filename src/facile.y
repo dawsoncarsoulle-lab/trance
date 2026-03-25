@@ -200,8 +200,9 @@ void yyerror(const char *s) {
     fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\nGiven error is : %s\n", yylineno, yytext, s);
 }
 
-int main() {
-
+int main(int argc, char * argv[]) {
+    char * il_filename = "facile.il";
+    if (argc == 2) il_filename = argv[1];
     table = g_hash_table_new(g_str_hash, g_str_equal);
 
     extern int yydebug;
@@ -209,7 +210,7 @@ int main() {
 
     if (yyparse() == 0) {
         CodeGenContext ctx = {0};
-        ctx.stream = fopen("facile.il", "w");
+        ctx.stream = fopen(il_filename, "w");
         if (ctx.stream == NULL) {
             fprintf(stderr, "Error: Failed to open facile.il for writing.\n");
             return 1;
