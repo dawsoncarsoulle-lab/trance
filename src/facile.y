@@ -135,7 +135,7 @@ if_statement:
             $$ = $1;
             GNode *new_if = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
             g_node_append(new_if, $3);
-            g_node_append(new_if, $4);
+            g_node_append(new_if, $5);
             GNode* current = $$;
             while (g_node_nth_child(current, 2) != NULL) {
                 current = g_node_nth_child(current, 2);

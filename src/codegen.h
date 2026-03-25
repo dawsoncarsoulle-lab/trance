@@ -166,11 +166,9 @@ void produce_code(CodeGenContext *ctx, GNode *node) {
     emit_call(ctx, "int32 int32::Parse(string)");
     emit_local_var(ctx, "stloc", GET_VAR_INDEX(g_node_nth_child(g_node_nth_child(node, 0), 0)));
     break;
-  case NODE_IF_STATEMENT   : produce_if_statement(ctx, node); break;
-  case NODE_WHILE_STATEMENT: produce_while_statement(ctx, node); break;
-  case NODE_BREAK          : emit_branch(ctx, "br", "END", ctx->current_loop_label); break;
-  case NODE_CONTINUE       : emit_branch(ctx, "br", "WHILE", ctx->current_loop_label); break;
-  default                  : fprintf(ctx->stream, "ERROR: unknown token"); break;
+  case NODE_BREAK   : emit_branch(ctx, "br", "END", ctx->current_loop_label); break;
+  case NODE_CONTINUE: emit_branch(ctx, "br", "WHILE", ctx->current_loop_label); break;
+  default           : fprintf(ctx->stream, "ERROR: unknown token"); break;
   }
 }
 
