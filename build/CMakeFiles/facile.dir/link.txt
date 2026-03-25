@@ -1,0 +1,1 @@
+/usr/bin/cc -rdynamic -Wl,--dependency-file=CMakeFiles/facile.dir/link.d CMakeFiles/facile.dir/facile.lex.c.o -o facile  -lfl

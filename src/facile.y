@@ -71,14 +71,14 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
         }
         ;
 
-    instruction:
+      instruction:
         read_call
         | print_call
         | affectation
         | if_statement
         | while_statement
-        | BREAK SEMICOLON
-        | CONTINUE SEMICOLON
+        | BREAK SEMICOLON { PARENT_(NODE_BREAK); }
+        | CONTINUE SEMICOLON { PARENT_(NODE_CONTINUE); }
         ;
 
     expr:
@@ -106,17 +106,42 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
 
     if_ender: END | ENDIF;
 
-    if_statement:
+if_statement:
         IF boolean THEN block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); }
-        // maybe shouldn't have the same node, puts too much pressure on codegen
-        | IF boolean THEN block ELSE block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $6); }
-        | IF boolean THEN else_if_statement if_ender
-        | IF boolean THEN else_if_statement ELSE block if_ender
+        |
+        IF boolean THEN block ELSE block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $6); }
+        |
+        IF boolean THEN block else_if_statement if_ender {
+            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5);
+        }
+        |
+        IF boolean THEN block else_if_statement ELSE block if_ender {
+            GNode* current = $5;
+            while (g_node_nth_child(current, 2) != NULL) {
+                current = g_node_nth_child(current, 2);
+            }
+            g_node_append(current, $7);
+
+            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5);
+        }
         ;
 
     else_if_statement:
-        ELSEIF boolean THEN block
-        | else_if_statement ELSEIF boolean THEN block
+        ELSEIF boolean THEN block {
+            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4);
+        }
+        |
+        else_if_statement ELSEIF boolean THEN block {
+            $$ = $1;
+            GNode *new_if = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
+            g_node_append(new_if, $3);
+            g_node_append(new_if, $4);
+            GNode* current = $$;
+            while (g_node_nth_child(current, 2) != NULL) {
+                current = g_node_nth_child(current, 2);
+            }
+            g_node_append(current, new_if);
+        }
         ;
 
     while_ender: END | ENDWHILE;

@@ -153,3 +153,15 @@ fn test_if_else() void = {
     assert_answer(out, "129");
     free(out);
 };
+
+@test fn test_elseif() void = {
+    let out = non_interactive_test("test-elseif");
+    assert_answers(out, "3");
+    free(out);
+};
+
+@test fn test_break_continue() void = {
+    let out = non_interactive_test("test-break_continue");
+    assert_answers(out, "1", "3");
+    free(out);
+};

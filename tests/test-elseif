@@ -1,0 +1,10 @@
+a := 10;
+if a == 5 then
+    print 1;
+elseif a == 6 then
+    print 2;
+elseif a == 10 then
+    print 3;
+else
+    print 4;
+endif
