@@ -1,5 +1,0 @@
-/home/ilona/Documents/Cours/L3/S5/Compilation/TP/Projet/build/CMakeFiles/facile.dir
-/home/ilona/Documents/Cours/L3/S5/Compilation/TP/Projet/build/CMakeFiles/package.dir
-/home/ilona/Documents/Cours/L3/S5/Compilation/TP/Projet/build/CMakeFiles/package_source.dir
-/home/ilona/Documents/Cours/L3/S5/Compilation/TP/Projet/build/CMakeFiles/edit_cache.dir
-/home/ilona/Documents/Cours/L3/S5/Compilation/TP/Projet/build/CMakeFiles/rebuild_cache.dir

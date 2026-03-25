@@ -71,7 +71,7 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
         }
         ;
 
-      instruction:
+instruction:
         read_call
         | print_call
         | affectation

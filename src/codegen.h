@@ -111,6 +111,7 @@ void produce_if_statement(CodeGenContext *ctx, GNode *node) {
  */
 void produce_while_statement(CodeGenContext *ctx, GNode *node) {
   int label_id = ctx->label_count++;
+
   int prev_loop_label = ctx->current_loop_label;
   ctx->current_loop_label = label_id;
   emit_label(ctx, "WHILE", label_id);
