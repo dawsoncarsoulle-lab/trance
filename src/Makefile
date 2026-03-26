@@ -6,6 +6,7 @@ EXEC_PATH = ../build/facile
 .PHONY: main
 
 main:
+	@mkdir -p ../build
 	flex facile.lex
 	bison -d facile.y
 	@rm -f $(EXEC_PATH)
