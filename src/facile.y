@@ -1,29 +1,48 @@
 %{
     #include <stdio.h>
-    #include <glib.h>
+    #include "ast.h"
+
+    #define STB_DS_IMPLEMENTATION
+    #include "../include/stb_ds.h"
+
     #define CODEGEN_IMPLEMENTATION
     #include "codegen.h"
 
-    GNode *ast_root_node = NULL;
-    GHashTable *table = NULL;
+    int yylex(void);
+    void yyerror(const char *s);
+
+    FacileNode *ast_root_node = NULL;
+    FacileSymbol *table = NULL;
 
 
     // parent_node_type found in codegen.h
-    #define PARENT_(parent_node_type) \
-    do { yyval.node = g_node_new(GINT_TO_POINTER(parent_node_type)); } while (0);
+        #define PARENT_(parent_node_type) do { yyval.node = facile_create_node(parent_node_type); } while (0);
+
+    #define _WITH_CHILD(child_node) \
+        do { facile_node_add_child(yyval.node, child_node); } while (0);
 
     #define _WITH_CHILDREN_BINARY(left, right) \
-    do { g_node_append(yyval.node, left); g_node_append(yyval.node, right); } while (0);
-
+        do { facile_node_add_child(yyval.node, left); facile_node_add_child(yyval.node, right); } while (0);
     #define _WITH_CHILDREN_TERNARY(first, second, third) \
-    do { g_node_append(yyval.node, first); g_node_append(yyval.node, second); g_node_append(yyval.node, third); } while (0);
+        do { facile_node_add_child(yyval.node, first); facile_node_add_child(yyval.node, second); facile_node_add_child(yyval.node, third); } while (0);
+
+    int facile_symbol(char *symbol_name) {
+        ptrdiff_t idx = shgeti(table, symbol_name);
+        if (idx == -1) {
+            int identifier_id = shlen(table);
+            shput(table, symbol_name, identifier_id);
+            return identifier_id;
+        }
+        free(symbol_name); // strdup in facile.lex
+        return table[idx].value;
+    }
 
 %}
 
 %union {
     int integer;
     char * identifier;
-    GNode * node;
+    FacileNode * node;
 }
 
 %define parse.trace
@@ -31,20 +50,12 @@
 %token <integer> INTEGER;
 %token <identifier> IDENTIFIER;
 
-%token IF THEN ELSE ELSEIF END ENDIF WHILE DO ENDWHILE CONTINUE BREAK
-DOUBLE_QUOTE SEMICOLON ADD SUB MUL DIV CURLY_BRACE_L CURLY_BRACE_R
+%token IF THEN ELSE ELSEIF END ENDIF WHILE DO ENDWHILE CONTINUE BREAK SEMICOLON
 PARENTHESIS_L PARENTHESIS_R AFFECTATION PRINT READ NOT AND OR GREATER_THAN
-LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
+LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS ADD SUB MUL DIV
 
 // mirror node enum found in codegen.h
 // syntax transformation example: identifier -> NODE_IDENTIFIER
-%type<node> identifier
-%type<node> number
-%type<node> add
-%type<node> sub
-%type<node> mul
-%type<node> div
-
 %type<node> program block instruction expr boolean
 %type<node> if_statement else_if_statement while_statement
 %type<node> read_call print_call affectation
@@ -65,13 +76,13 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS
     block:
         { $$ = NULL; }
         | block instruction {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_BLOCK));
-            if ($1 != NULL) g_node_append($$, $1);
-            g_node_append($$, $2);
+            $$ = facile_create_node(NODE_BLOCK);
+            if ($1 != NULL) facile_node_add_child($$, $1);
+            facile_node_add_child($$, $2);
         }
         ;
 
-instruction:
+    instruction:
         read_call
         | print_call
         | affectation
@@ -83,19 +94,21 @@ instruction:
 
     expr:
         INTEGER {
-            $$ = g_node_new(GINT_TO_POINTER(NODE_NUMBER));
-            g_node_append_data($$, GINT_TO_POINTER($1));
+            $$ = facile_create_node(NODE_NUMBER);
+            $$->data = $1;
         }
         | IDENTIFIER {
-            gulong value = (gulong) g_hash_table_lookup(table, $1);
-            if (!value) {
+            ptrdiff_t idx = shgeti(table, $1);
+            if (idx == -1) {
                 char error_msg[256];
                 snprintf(error_msg, sizeof(error_msg), "Error: Undeclared variable '%s' in expression", $1);
                 yyerror(error_msg);
                 YYABORT;
             }
-            $$ = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
-            g_node_append_data($$, (gpointer)value);
+
+            $$ = facile_create_node(NODE_IDENTIFIER);
+            $$->data = table[idx].value;
+            free($1);
         }
             | expr ADD expr     { PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); }
             | expr SUB expr     { PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); }
@@ -106,24 +119,19 @@ instruction:
 
     if_ender: END | ENDIF;
 
-if_statement:
+    if_statement:
         IF boolean THEN block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); }
         |
         IF boolean THEN block ELSE block if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $6); }
         |
-        IF boolean THEN block else_if_statement if_ender {
-            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5);
-        }
+        IF boolean THEN block else_if_statement if_ender { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5); }
         |
         IF boolean THEN block else_if_statement ELSE block if_ender {
-            GNode* current = $5;
-            while (g_node_nth_child(current, 2) != NULL) {
-                current = g_node_nth_child(current, 2);
-            }
-            g_node_append(current, $7);
+            FacileNode* current = $5;
+            while (current->children[2] != NULL) current = current->children[2];
+            facile_node_add_child(current, $7);
 
-            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5);
-        }
+            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_TERNARY($2, $4, $5);        }
         ;
 
     else_if_statement:
@@ -133,14 +141,13 @@ if_statement:
         |
         else_if_statement ELSEIF boolean THEN block {
             $$ = $1;
-            GNode *new_if = g_node_new(GINT_TO_POINTER(NODE_IF_STATEMENT));
-            g_node_append(new_if, $3);
-            g_node_append(new_if, $5);
-            GNode* current = $$;
-            while (g_node_nth_child(current, 2) != NULL) {
-                current = g_node_nth_child(current, 2);
-            }
-            g_node_append(current, new_if);
+            FacileNode *new_if = facile_create_node(NODE_IF_STATEMENT);
+            facile_node_add_child(new_if, $3);
+            facile_node_add_child(new_if, $5);
+
+            FacileNode* current = $$;
+            while (current->children[2] != NULL) current = current->children[2];
+            facile_node_add_child(current, new_if);
         }
         ;
 
@@ -149,9 +156,9 @@ if_statement:
     while_statement: WHILE boolean DO block while_ender { PARENT_(NODE_WHILE_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); };
 
     boolean:
-        _TRUE
-        | _FALSE
-        | NOT boolean
+        _TRUE                       { PARENT_(NODE_TRUE)    }
+        | _FALSE                    { PARENT_(NODE_FALSE)   }
+        | NOT boolean               { PARENT_(NODE_NOT)             _WITH_CHILD($2);               }
         | expr HASH expr            { PARENT_(NODE_HASH)            _WITH_CHILDREN_BINARY($1, $3); }
         | expr EQUALS expr          { PARENT_(NODE_EQUALS)          _WITH_CHILDREN_BINARY($1, $3); }
         | boolean OR boolean        { PARENT_(NODE_OR)              _WITH_CHILDREN_BINARY($1, $3); }
@@ -164,31 +171,17 @@ if_statement:
         ;
 
     read_call: READ IDENTIFIER SEMICOLON {
-        gulong value = (gulong) g_hash_table_lookup(table, $2);
-        if (!value) {
-            value = g_hash_table_size(table) + 1;
-            g_hash_table_insert(table, strdup($2), (gpointer)value);
-        }
+        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+        id_node->data = facile_symbol($2);
 
-        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
-        g_node_append_data(id_node, (gpointer)value);
-
-        $$ = g_node_new(GINT_TO_POINTER(NODE_READ));
-        g_node_append($$, id_node);
+        PARENT_(NODE_READ)_WITH_CHILD(id_node);
     };
-    print_call: PRINT expr SEMICOLON {
-        $$ = g_node_new(GINT_TO_POINTER(NODE_PRINT));
-        g_node_append($$, $2);
-    };
+    print_call: PRINT expr SEMICOLON { PARENT_(NODE_PRINT)_WITH_CHILD($2); };
     affectation: IDENTIFIER AFFECTATION expr SEMICOLON {
-        gulong value = (gulong) g_hash_table_lookup(table, $1);
-        if (!value) {
-            value = g_hash_table_size(table) + 1;
-            g_hash_table_insert(table, strdup($1), (gpointer) value);
-        }
-        GNode *id_node = g_node_new(GINT_TO_POINTER(NODE_IDENTIFIER));
-        g_node_append_data(id_node, (gpointer)value);
-        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3)
+        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+        id_node->data = facile_symbol($1);
+
+        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3);
     };
 
 %%
@@ -203,7 +196,6 @@ void yyerror(const char *s) {
 int main(int argc, char * argv[]) {
     char * il_filename = "facile.il";
     if (argc == 2) il_filename = argv[1];
-    table = g_hash_table_new(g_str_hash, g_str_equal);
 
     extern int yydebug;
     // yydebug = 1;
@@ -215,13 +207,14 @@ int main(int argc, char * argv[]) {
             fprintf(stderr, "Error: Failed to open facile.il for writing.\n");
             return 1;
         }
-        guint local_count = g_hash_table_size(table);
+        int local_count = shlen(table);
+
         begin_code(&ctx, local_count);
         produce_code(&ctx, ast_root_node);
         end_code(&ctx);
 
         fclose(ctx.stream);
-        if (ast_root_node != NULL) g_node_destroy(ast_root_node);
+        if (ast_root_node != NULL) facile_node_free(ast_root_node);
 
     } else {
         printf("Compilation failed due to syntax errors.\n");

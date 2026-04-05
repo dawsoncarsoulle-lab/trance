@@ -1,7 +1,7 @@
 %{
 #include <stdio.h>
 #include <string.h>
-#include <glib.h>
+#include "ast.h"
 #include "facile.tab.h"
 
 %}
@@ -19,9 +19,6 @@
 "/" {return DIV;}
 "(" {return PARENTHESIS_L;}
 ")" {return PARENTHESIS_R;}
-"{" {return CURLY_BRACE_L;}
-"}" {return CURLY_BRACE_R;}
-"\"" {return DOUBLE_QUOTE;}
 "if" {return IF;}
 "then" {return THEN;}
 "else" {return ELSE;}

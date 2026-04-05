@@ -13,15 +13,15 @@
 #define GETS(...) {__VA_ARGS__, NULL}
 
 #define TEST_NON_INTERACTIVE(func_name, file_name, ...)                                            \
-  void func_name() {                                                                               \
+  int func_name() {                                                                                \
     const char *gets[] = {__VA_ARGS__, NULL};                                                      \
-    run_test_engine(file_name, NULL, gets);                                                        \
+    return run_test_engine(file_name, NULL, gets);                                                 \
   }
 
 #define TEST_INTERACTIVE(func_name, file_name, SENDS_ARRAY, GETS_ARRAY)                            \
-  void func_name() {                                                                               \
+  int func_name() {                                                                                \
     const char *sends[] = SENDS_ARRAY, *gets[] = GETS_ARRAY;                                       \
-    run_test_engine(file_name, sends, gets);                                                       \
+    return run_test_engine(file_name, sends, gets);                                                \
   }
 
 void clean_string(char *str) {
@@ -108,10 +108,10 @@ int verify_test_output(const char *file_name, const char *cmd, const char **gets
   return passed;
 }
 
-void run_test_engine(const char *file_name, const char **sends, const char **gets) {
+int run_test_engine(const char *file_name, const char **sends, const char **gets) {
   if (assemble_test_file(file_name) != 0) {
     printf("[FATAL] Compilation/Assembly failed for %s\n", file_name);
-    return;
+    return -1;
   }
 
   char cmd[2048] = {0};
@@ -119,9 +119,9 @@ void run_test_engine(const char *file_name, const char **sends, const char **get
 
   int passed = verify_test_output(file_name, cmd, gets);
 
-  if (passed) {
+  if (passed)
     printf("[PASS] %s\n", file_name);
-  }
+  return passed;
 }
 
 TEST_NON_INTERACTIVE(test_math, "test-math", "25")
@@ -139,7 +139,7 @@ TEST_INTERACTIVE(test_largest_common_denominator, "test-largest_common_denominat
 TEST_NON_INTERACTIVE(test_elseif, "test-elseif", "3")
 TEST_NON_INTERACTIVE(test_break_continue, "test-break_continue", "1", "3")
 
-typedef void (*test_func)(void);
+typedef int (*test_func)(void);
 
 int main() {
   test_func tests[] = {test_math,
@@ -155,15 +155,15 @@ int main() {
                        test_break_continue};
 
   int test_count = sizeof(tests) / sizeof(tests[0]);
-  int *scoreboard = mmap(NULL, test_count * sizeof(int), PROT_READ | PROT_WRITE,
-                         MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+  int *scoreboard = (int *)mmap(NULL, test_count * sizeof(*scoreboard), PROT_READ | PROT_WRITE,
+                                MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
   for (int i = 0; i < test_count; i++)
     scoreboard[i] = -1;
 
   for (int i = 0; i < test_count; i++) {
     if (fork() == 0) {
-      tests[i]();
-      scoreboard[i] = 0;
+      scoreboard[i] = tests[i]();
       exit(0);
     }
   }
@@ -171,14 +171,13 @@ int main() {
     ;
 
   int passed = 0, failed = 0;
-  for (int i = 0; i < test_count; i++) {
-    if (scoreboard[i] == 0)
+  for (int i = 0; i < test_count; i++)
+    if (scoreboard[i] == 1)
       passed++;
     else
       failed++;
-  }
 
   printf("Results: %d Passed, %d Failed\n", passed, failed);
-  munmap(scoreboard, test_count * sizeof(int));
+  munmap(scoreboard, test_count * sizeof(*scoreboard));
   return failed > 0 ? 1 : 0;
 }
