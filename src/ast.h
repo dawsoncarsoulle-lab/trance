@@ -3,6 +3,37 @@
 
 #include <stdlib.h>
 
+typedef enum {
+  NODE_BLOCK,
+  // statements/instructions
+  NODE_READ,
+  NODE_PRINT,
+  NODE_AFFECTATION,
+  NODE_IF_STATEMENT,
+  NODE_WHILE_STATEMENT,
+  NODE_BREAK,
+  NODE_CONTINUE,
+  // expression
+  NODE_NUMBER,
+  NODE_IDENTIFIER,
+  NODE_ADD,
+  NODE_SUB,
+  NODE_MUL,
+  NODE_DIV,
+  // boolean
+  NODE_TRUE,
+  NODE_FALSE,
+  NODE_NOT,
+  NODE_HASH,
+  NODE_EQUALS,
+  NODE_OR,
+  NODE_AND,
+  NODE_LESSER_THAN,
+  NODE_GREATER_THAN,
+  NODE_LESSER_EQUALS,
+  NODE_GREATER_EQUALS,
+} ASTNodeType;
+
 typedef struct {
   char *key;
   int value;

@@ -1,11 +1,11 @@
 %{
     #include <stdio.h>
-    #include "ast.h"
 
     #define STB_DS_IMPLEMENTATION
     #include "../include/stb_ds.h"
 
     #define CODEGEN_IMPLEMENTATION
+    #define BACKEND_LANGUAGE__CIL
     #include "codegen.h"
 
     int yylex(void);
@@ -16,7 +16,7 @@
 
 
     // parent_node_type found in codegen.h
-        #define PARENT_(parent_node_type) do { yyval.node = facile_create_node(parent_node_type); } while (0);
+    #define PARENT_(parent_node_type) do { yyval.node = facile_create_node(parent_node_type); } while (0);
 
     #define _WITH_CHILD(child_node) \
         do { facile_node_add_child(yyval.node, child_node); } while (0);
@@ -209,9 +209,9 @@ int main(int argc, char * argv[]) {
         }
         int local_count = shlen(table);
 
-        begin_code(&ctx, local_count);
+        facile_begin_program(&ctx, local_count);
         produce_code(&ctx, ast_root_node);
-        end_code(&ctx);
+        facile_end_program(&ctx);
 
         fclose(ctx.stream);
         if (ast_root_node != NULL) facile_node_free(ast_root_node);
