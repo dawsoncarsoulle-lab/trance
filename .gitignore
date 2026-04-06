@@ -1,17 +1,4 @@
-# Ignorer les fichiers générés par Flex/Bison
 *.tab.c
 *.tab.h
 *.yy.c
-tests/build
-
-# Ignorer l'exécutable final
-facile
-facile.exe
-facile.il
-
-# Ignorer les fichiers systèmes ou IDE
-.DS_Store
-.vscode/
-.idea/
-*.json
-.cache
+build/

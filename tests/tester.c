@@ -37,7 +37,6 @@ void clean_string(char *str) {
 
 int assemble_test_file(const char *test_name) {
   char cmd[512];
-  system("mkdir -p build");
 
   snprintf(cmd, sizeof(cmd), "%s %s.facile", FACILE_PATH, test_name);
   if (system(cmd) != 0)
@@ -48,8 +47,9 @@ int assemble_test_file(const char *test_name) {
   if (system(cmd) != 0)
     return -1;
 
-  snprintf(cmd, sizeof(cmd), "rm -f %s.il", test_name);
-  system(cmd);
+  char il_file[256];
+  snprintf(il_file, sizeof(il_file), "%s.il", test_name);
+  remove(il_file);
 
   return 0;
 }
@@ -164,6 +164,7 @@ LIST_OF_TESTS(DEFINE_TEST)
 typedef int (*test_func)(void);
 
 int main() {
+  system("mkdir -p build");
 
 #define REGISTER_TEST(type, name, ...) name,
   test_func tests[] = {LIST_OF_TESTS(REGISTER_TEST)};
