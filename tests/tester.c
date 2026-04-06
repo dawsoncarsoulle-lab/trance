@@ -9,19 +9,21 @@
 #define FACILE_PATH "../build/facile"
 #define ASSEMBLER "ilasm"
 
+#define TEST_NAME(test_name) (test_name, #test_name)
+
 #define SENDS(...) {__VA_ARGS__, NULL}
 #define GETS(...) {__VA_ARGS__, NULL}
 
-#define TEST_NON_INTERACTIVE(func_name, file_name, ...)                                            \
+#define TEST_NON_INTERACTIVE(func_name, ...)                                                       \
   int func_name() {                                                                                \
     const char *gets[] = {__VA_ARGS__, NULL};                                                      \
-    return run_test_engine(file_name, NULL, gets);                                                 \
+    return run_test_engine(#func_name, NULL, gets);                                                \
   }
 
-#define TEST_INTERACTIVE(func_name, file_name, SENDS_ARRAY, GETS_ARRAY)                            \
+#define TEST_INTERACTIVE(func_name, SENDS_ARRAY, GETS_ARRAY)                                       \
   int func_name() {                                                                                \
     const char *sends[] = SENDS_ARRAY, *gets[] = GETS_ARRAY;                                       \
-    return run_test_engine(file_name, sends, gets);                                                \
+    return run_test_engine(#func_name, sends, gets);                                               \
   }
 
 void clean_string(char *str) {
@@ -37,14 +39,17 @@ int assemble_test_file(const char *test_name) {
   char cmd[512];
   system("mkdir -p build");
 
-  snprintf(cmd, sizeof(cmd), "%s build/%s.il < %s", FACILE_PATH, test_name, test_name);
+  snprintf(cmd, sizeof(cmd), "%s %s.facile", FACILE_PATH, test_name);
   if (system(cmd) != 0)
     return -1;
 
-  snprintf(cmd, sizeof(cmd), "%s build/%s.il /output:build/%s.exe > /dev/null", ASSEMBLER,
-           test_name, test_name);
+  snprintf(cmd, sizeof(cmd), "%s %s.il /output:build/%s.exe > /dev/null", ASSEMBLER, test_name,
+           test_name);
   if (system(cmd) != 0)
     return -1;
+
+  snprintf(cmd, sizeof(cmd), "rm -f %s.il", test_name);
+  system(cmd);
 
   return 0;
 }
@@ -124,25 +129,24 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
   return passed;
 }
 
-TEST_NON_INTERACTIVE(test_math, "test-math", "25")
-TEST_INTERACTIVE(test_read_empty, "test-read_empty", SENDS("0"), GETS("0"))
-TEST_INTERACTIVE(test_read_math, "test-read_math", SENDS("20"), GETS("30"))
-TEST_NON_INTERACTIVE(test_read_expr_precedence, "test-read_expr_precedence", "50", "60", "10")
-TEST_NON_INTERACTIVE(test_if_condition, "test-if_condition", "5")
-TEST_NON_INTERACTIVE(test_if_else, "test-if_else", "5", "3")
-TEST_NON_INTERACTIVE(test_while_loop, "test-while_loop", "0", "1", "2", "3", "4", "5", "6", "7",
-                     "8", "9")
-TEST_NON_INTERACTIVE(test_while_loop_nested, "test-while_loop_nested", "5", "5", "4", "3", "2", "1",
-                     "4", "3", "2", "1")
-TEST_INTERACTIVE(test_largest_common_denominator, "test-largest_common_denominator",
-                 SENDS("387", "129"), GETS("129"))
-TEST_NON_INTERACTIVE(test_elseif, "test-elseif", "3")
-TEST_NON_INTERACTIVE(test_break_continue, "test-break_continue", "1", "3")
+TEST_NON_INTERACTIVE(test_booleans, "1", "2")
+TEST_NON_INTERACTIVE(test_math, "25")
+TEST_INTERACTIVE(test_read_empty, SENDS("0"), GETS("0"))
+TEST_INTERACTIVE(test_read_math, SENDS("20"), GETS("30"))
+TEST_NON_INTERACTIVE(test_read_expr_precedence, "50", "60", "10")
+TEST_NON_INTERACTIVE(test_if_condition, "5")
+TEST_NON_INTERACTIVE(test_if_else, "5", "3")
+TEST_NON_INTERACTIVE(test_while_loop, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+TEST_NON_INTERACTIVE(test_while_loop_nested, "5", "5", "4", "3", "2", "1", "4", "3", "2", "1")
+TEST_INTERACTIVE(test_largest_common_denominator, SENDS("387", "129"), GETS("129"))
+TEST_NON_INTERACTIVE(test_elseif, "3")
+TEST_NON_INTERACTIVE(test_break_continue, "1", "3")
 
 typedef int (*test_func)(void);
 
 int main() {
-  test_func tests[] = {test_math,
+  test_func tests[] = {test_booleans,
+                       test_math,
                        test_read_empty,
                        test_read_math,
                        test_read_expr_precedence,

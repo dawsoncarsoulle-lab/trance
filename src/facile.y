@@ -193,19 +193,55 @@ void yyerror(const char *s) {
     fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\nGiven error is : %s\n", yylineno, yytext, s);
 }
 
+
+#include <ctype.h>
+#define FACILE_FILE_EXTENSION ".facile"
+
 int main(int argc, char * argv[]) {
-    char * il_filename = "facile.il";
-    if (argc == 2) il_filename = argv[1];
+    if (argc != 2) return EXIT_FAILURE;
+
+    char *path = argv[1];
+    int filename_length = strlen(path);
+
+    for (int i = sizeof(FACILE_FILE_EXTENSION) - 2, j = filename_length - 1; i >= 0; i--, j--)
+        if (j < 0 || path[j] != FACILE_FILE_EXTENSION[i]) {
+            fprintf(stderr, "input is not a .facile file\n");
+            return EXIT_FAILURE;
+        }
+
+    int start = filename_length - 1;
+    while (start >= 0 && path[start] != '/')  start--;
+    start++;
+
+    if (!isalpha(path[start]) && path[start] != '_') {
+        fprintf(stderr, "name must start with letter or underscore\n");
+        return EXIT_FAILURE;
+    }
+    for (int i = start + 1; i < filename_length - 7; i++)
+        if (!isalnum(path[i]) && path[i] != '_') {
+            fprintf(stderr, "name contains invalid characters\n");
+            return EXIT_FAILURE;
+    }
+
+    char output_filename[256];
+    int base_len = filename_length - 7 - start;
+    snprintf(output_filename, sizeof(output_filename), "%.*s.il", base_len, &path[start]);
 
     extern int yydebug;
-    // yydebug = 1;
+    extern FILE *yyin;
+
+    yyin = fopen(path, "r");
+    if (!yyin) {
+        fprintf(stderr, "Error: Failed to open %s\n", path);
+        return EXIT_FAILURE;
+    }
 
     if (yyparse() == 0) {
         CodeGenContext ctx = {0};
-        ctx.stream = fopen(il_filename, "w");
+        ctx.stream = fopen(output_filename, "w");
         if (ctx.stream == NULL) {
             fprintf(stderr, "Error: Failed to open facile.il for writing.\n");
-            return 1;
+            return EXIT_FAILURE;
         }
         int local_count = shlen(table);
 
@@ -218,7 +254,9 @@ int main(int argc, char * argv[]) {
 
     } else {
         printf("Compilation failed due to syntax errors.\n");
-        return 1;
+        return EXIT_FAILURE;
     }
-    return 0;
+
+    fclose(yyin);
+    return EXIT_SUCCESS;
 }
