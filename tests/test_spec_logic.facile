@@ -1,0 +1,4 @@
+if true and false then print 1; else print 0; end
+if true or false then print 1; else print 0; end
+if not true then print 1; else print 0; end
+if not false and true then print 1; else print 0; end

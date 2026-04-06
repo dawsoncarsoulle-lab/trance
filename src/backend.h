@@ -2,7 +2,7 @@
 #define _BACKEND_H_
 
 #include "ast.h"
-#include "emitter.h"
+#include "context.h"
 
 // "environment" setup
 void facile_begin_program(CodeGenContext *ctx, int local_count);

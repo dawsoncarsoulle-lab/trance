@@ -1,0 +1,6 @@
+if 10 == 10 then print 1; else print 0; end
+if 10 # 5 then print 1; else print 0; end
+if 5 < 10 then print 1; else print 0; end
+if 10 <= 10 then print 1; else print 0; end
+if 20 > 10 then print 1; else print 0; end
+if 10 >= 20 then print 1; else print 0; end

@@ -8,6 +8,8 @@
 
 #define FACILE_PATH "../build/facile"
 #define ASSEMBLER "ilasm"
+#define TEST_PASS "\033[0;32m[PASS]\033[0m"
+#define TEST_FAIL "\033[0;31m[FATAL]\033[0m"
 
 #define SENDS(...) {__VA_ARGS__, NULL}
 #define GETS(...) {__VA_ARGS__, NULL}
@@ -73,7 +75,7 @@ void build_mono_command(char *cmd, size_t max_length, const char *file_name, con
 int verify_test_output(const char *file_name, const char *cmd, const char **gets) {
   FILE *mono_pipe = popen(cmd, "r");
   if (!mono_pipe) {
-    printf("[FATAL] popen failed to run mono for %s\n", file_name);
+    printf(TEST_FAIL " popen failed to run mono for %s\n", file_name);
     return 0;
   }
 
@@ -103,7 +105,7 @@ int verify_test_output(const char *file_name, const char *cmd, const char **gets
   pclose(mono_pipe);
 
   if (passed && gets[line_index] != NULL) {
-    printf("[FAIL] %s - Missing output, expected '%s' but program exited.\n", file_name,
+    printf(TEST_FAIL " %s - Missing output, expected '%s' but program exited.\n", file_name,
            gets[line_index]);
     passed = 0;
   }
@@ -113,7 +115,7 @@ int verify_test_output(const char *file_name, const char *cmd, const char **gets
 
 int run_test_engine(const char *file_name, const char **sends, const char **gets) {
   if (assemble_test_file(file_name) != 0) {
-    printf("[FATAL] Compilation/Assembly failed for %s\n", file_name);
+    printf(TEST_FAIL " Compilation/Assembly failed for %s\n", file_name);
     return -1;
   }
 
@@ -123,7 +125,7 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
   int passed = verify_test_output(file_name, cmd, gets);
 
   if (passed)
-    printf("[PASS] %s\n", file_name);
+    printf(TEST_PASS " %s\n", file_name);
   return passed;
 }
 
@@ -143,7 +145,10 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
   X(INT, test_largest_common_denominator, (SENDS("387", "129")), (GETS("129")))                    \
   X(NON, test_elseif, ("3"))                                                                       \
   X(NON, test_break_continue, ("1", "3"))                                                          \
-  X(INT, test_types_intake, (SENDS("1", "2", "bonjur")), (GETS("3", "bonjur")))
+  X(INT, test_types_intake, (SENDS("1", "2", "bonjur")), (GETS("3", "bonjur")))                    \
+  X(NON, test_spec_relational, ("1", "1", "1", "1", "1", "0"))                                     \
+  X(NON, test_spec_logic, ("0", "1", "0", "1"))                                                    \
+  X(INT, test_spec_nested_if, (SENDS("15", "15")), (GETS("2")))
 
 #define STRIP_PARENS(...) __VA_ARGS__
 #define DEFINE_TEST(type, name, ...) X_##type(name, __VA_ARGS__)

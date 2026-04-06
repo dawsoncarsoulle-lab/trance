@@ -1,0 +1,11 @@
+read a;
+read b;
+if a > 10 then
+    if b > 10 then
+        print 2;
+    else
+        print 1;
+    end
+else
+    print 0;
+end
