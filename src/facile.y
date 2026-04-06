@@ -26,14 +26,21 @@
     #define _WITH_CHILDREN_TERNARY(first, second, third) \
         do { facile_node_add_child(yyval.node, first); facile_node_add_child(yyval.node, second); facile_node_add_child(yyval.node, third); } while (0);
 
-    int facile_symbol(char *symbol_name) {
-        ptrdiff_t idx = shgeti(table, symbol_name);
-        if (idx == -1) {
-            int identifier_id = shlen(table);
-            shput(table, symbol_name, identifier_id);
-            return identifier_id;
-        }
-        free(symbol_name); // strdup in facile.lex
+    int facile_symbol_declaration(char *name, DataType type) {
+        if (shgeti(table, name) != -1) return -1; // case exists already
+
+        int id = shlen(table);
+        shput(table, name, id);
+        shgetp(table, name)->type = (int)type;
+
+        return id;
+    }
+
+    int facile_symbol_lookup(char *name) {
+        ptrdiff_t idx = shgeti(table, name);
+        free(name);
+        if (idx == -1) return -1;
+
         return table[idx].value;
     }
 
@@ -43,22 +50,26 @@
     int integer;
     char * identifier;
     FacileNode * node;
+    DataType data_type;
 }
 
 %define parse.trace
 
 %token <integer> INTEGER;
 %token <identifier> IDENTIFIER;
+%token <identifier> STRING_LITERAL
 
 %token IF THEN ELSE ELSEIF END ENDIF WHILE DO ENDWHILE CONTINUE BREAK SEMICOLON
 PARENTHESIS_L PARENTHESIS_R AFFECTATION PRINT READ NOT AND OR GREATER_THAN
 LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS ADD SUB MUL DIV
+TYPE_INTEGER TYPE_STRING COLON
 
 // mirror node enum found in codegen.h
 // syntax transformation example: identifier -> NODE_IDENTIFIER
 %type<node> program block instruction expr boolean
 %type<node> if_statement else_if_statement while_statement
 %type<node> read_call print_call affectation
+%type<data_type> type_spec
 
 
 %left OR
@@ -106,14 +117,22 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS ADD SUB MUL DI
                 YYABORT;
             }
 
+            DataType t = (DataType)table[idx].type;
+            int id = facile_symbol_lookup($1);
+
             $$ = facile_create_node(NODE_IDENTIFIER);
-            $$->data = table[idx].value;
-            free($1);
+            $$->data = id;
+            $$->evaluated_type = t;
         }
-            | expr ADD expr     { PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); }
-            | expr SUB expr     { PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); }
-            | expr MUL expr     { PARENT_(NODE_MUL)_WITH_CHILDREN_BINARY($1, $3); }
-            | expr DIV expr     { PARENT_(NODE_DIV)_WITH_CHILDREN_BINARY($1, $3); }
+        | STRING_LITERAL {
+                $$ = facile_create_node(NODE_STRING_LITERAL);
+                $$->string_lit = $1;
+                $$->evaluated_type = T_STR;
+        }
+        | expr ADD expr     { PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); }
+        | expr SUB expr     { PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); }
+        | expr MUL expr     { PARENT_(NODE_MUL)_WITH_CHILDREN_BINARY($1, $3); }
+        | expr DIV expr     { PARENT_(NODE_DIV)_WITH_CHILDREN_BINARY($1, $3); }
         | PARENTHESIS_L expr PARENTHESIS_R { $$ = $2; }
         ;
 
@@ -171,19 +190,75 @@ LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS ADD SUB MUL DI
         ;
 
     read_call: READ IDENTIFIER SEMICOLON {
+        int id;
+            DataType t;
+            ptrdiff_t idx = shgeti(table, $2);
+
+            if (idx == -1) {
+                // 1. Implicit Declaration: It's new, so we instantiate it.
+                // Defaulting to T_INT here.
+                t = T_INT;
+                id = facile_symbol_declaration($2, t);
+            } else {
+                // 2. Existing Identifier: Just grab the info.
+                t = (DataType)table[idx].type;
+                id = facile_symbol_lookup($2);
+            }
+
+            FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+            id_node->data = id;
+            id_node->evaluated_type = t;
+
+            PARENT_(NODE_READ)_WITH_CHILD(id_node);
+    }
+    | READ IDENTIFIER COLON type_spec SEMICOLON {
+        int id = facile_symbol_declaration($2, $4);
+
         FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
-        id_node->data = facile_symbol($2);
+        id_node->data = id;
+        id_node->evaluated_type = $4;
 
         PARENT_(NODE_READ)_WITH_CHILD(id_node);
     };
     print_call: PRINT expr SEMICOLON { PARENT_(NODE_PRINT)_WITH_CHILD($2); };
-    affectation: IDENTIFIER AFFECTATION expr SEMICOLON {
+    affectation:
+        IDENTIFIER AFFECTATION expr SEMICOLON {
+        int id;
+        DataType t = T_INT; // default type if no type given
+        ptrdiff_t idx = shgeti(table, $1);
+
+        if (idx == -1)
+            id = facile_symbol_declaration($1, t);
+        else {
+            t = (DataType)table[idx].type;
+            id = facile_symbol_lookup($1);
+        }
+
         FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
-        id_node->data = facile_symbol($1);
+        id_node->data = id;
+        id_node->evaluated_type = t;
 
         PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3);
-    };
+    }
+    | IDENTIFIER COLON type_spec AFFECTATION expr SEMICOLON {
+        int id = facile_symbol_declaration($1, $3);
+        if (id == -1) {
+            yyerror("Error: Variable re-declaration is not allowed.");
+            YYABORT;
+        }
 
+        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+        id_node->data = id;
+        id_node->evaluated_type = $3;
+
+        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $5);
+    }
+    ;
+
+    type_spec:
+        TYPE_INTEGER { $$ = T_INT; }
+        | TYPE_STRING { $$ = T_STR; }
+        ;
 %%
 
 extern char *yytext;
@@ -239,6 +314,7 @@ int main(int argc, char * argv[]) {
     if (yyparse() == 0) {
         CodeGenContext ctx = {0};
         ctx.stream = fopen(output_filename, "w");
+        ctx.table = table;
         if (ctx.stream == NULL) {
             fprintf(stderr, "Error: Failed to open facile.il for writing.\n");
             return EXIT_FAILURE;
@@ -256,7 +332,7 @@ int main(int argc, char * argv[]) {
         printf("Compilation failed due to syntax errors.\n");
         return EXIT_FAILURE;
     }
-
+    shfree(table);
     fclose(yyin);
     return EXIT_SUCCESS;
 }

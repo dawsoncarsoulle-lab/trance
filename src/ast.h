@@ -13,6 +13,8 @@ typedef enum {
   NODE_WHILE_STATEMENT,
   NODE_BREAK,
   NODE_CONTINUE,
+  NODE_STRING_LITERAL,
+
   // expression
   NODE_NUMBER,
   NODE_IDENTIFIER,
@@ -34,23 +36,29 @@ typedef enum {
   NODE_GREATER_EQUALS,
 } ASTNodeType;
 
+typedef enum { T_INT, T_STR } DataType;
+
 typedef struct {
   char *key;
   int value;
+  int type;
 } FacileSymbol;
 
 #define NODE_MAX_CHILDREN 3
 
 typedef struct FacileNode {
-  int type;
+  ASTNodeType type;
   int data; // integer data or FacileSymbol value (identifier)
+  char *string_lit;
+  DataType evaluated_type;
   struct FacileNode *children[NODE_MAX_CHILDREN];
 } FacileNode;
 
-static inline FacileNode *facile_create_node(int type) {
+static inline FacileNode *facile_create_node(ASTNodeType type) {
   FacileNode *node = (FacileNode *)malloc(sizeof(*node));
   node->type = type;
   node->data = 0;
+  node->string_lit = NULL;
   node->children[0] = NULL;
   node->children[1] = NULL;
   node->children[2] = NULL;
@@ -68,8 +76,14 @@ static inline void facile_node_add_child(FacileNode *parent, FacileNode *child) 
 static inline void facile_node_free(FacileNode *node) {
   if (!node)
     return;
+
+  if (node->string_lit != NULL)
+    free(node->string_lit);
+
   for (int i = 0; i < NODE_MAX_CHILDREN; i++)
-    facile_node_free(node->children[i]);
+    if (node->children[i])
+      facile_node_free(node->children[i]);
+
   free(node);
 }
 

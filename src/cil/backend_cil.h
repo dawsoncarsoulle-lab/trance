@@ -21,10 +21,14 @@ void facile_begin_program(CodeGenContext *ctx, int local_count) {
                        "{\n"
                        "    .entrypoint\n"
                        "    .maxstack " DEFAULT_MAX_STACK "\n");
-  if (local_count > 0) {
-    fprintf(ctx->stream, "    .locals init ( ");
-    for (int i = 0; i < local_count; i++)
-      fprintf(ctx->stream, "        int32 V_%d%s ", i, (i == local_count - 1) ? "" : ",");
+  if (shlen(ctx->table) > 0) {
+    fprintf(ctx->stream, "    .locals init (\n");
+
+    for (int i = 0; i < shlen(ctx->table); i++) {
+      const char *t = (ctx->table[i].type == T_STR) ? "string" : "int32";
+      fprintf(ctx->stream, "      [%d] %s %s%s\n", i, t, ctx->table[i].key,
+              (i == shlen(ctx->table) - 1) ? "" : ",");
+    }
     fprintf(ctx->stream, "    )\n");
   }
 }
@@ -101,12 +105,22 @@ void facile_produce_continue(CodeGenContext *ctx, FacileNode *node) {
 
 void facile_produce_print(CodeGenContext *ctx, FacileNode *node) {
   produce_code(ctx, node->children[0]);
-  emit_call(ctx, "void class [mscorlib]System.Console::WriteLine(int32)");
+  if (node->children[0]->evaluated_type == T_INT)
+    emit_call(ctx, "void class [mscorlib]System.Console::WriteLine(int32)");
+  else
+    emit_call(ctx, "void class [mscorlib]System.Console::WriteLine(string)");
 }
 void facile_produce_read(CodeGenContext *ctx, FacileNode *node) {
   emit_call(ctx, "string class [mscorlib]System.Console::ReadLine()");
-  emit_call(ctx, "int32 int32::Parse(string)");
+
+  if (node->children[0]->evaluated_type == T_INT)
+    emit_call(ctx, "int32 int32::Parse(string)");
+
   emit_local_var(ctx, "stloc", node->children[0]->data);
+}
+
+void facile_produce_string_literal(CodeGenContext *ctx, FacileNode *node) {
+  fprintf(ctx->stream, "\tldstr \"%s\"\n", node->string_lit);
 }
 
 #define BINARY_OPERATION_NODES(ctx, node, operation)                                               \

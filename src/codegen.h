@@ -25,12 +25,13 @@ static void produce_code(CodeGenContext *ctx, FacileNode *node) {
   case NODE_PRINT          : facile_produce_print(ctx, node); break;
   case NODE_READ           : facile_produce_read(ctx, node); break;
   // expressions
-  case NODE_ADD       : facile_produce_add(ctx, node); break;
-  case NODE_SUB       : facile_produce_sub(ctx, node); break;
-  case NODE_MUL       : facile_produce_mul(ctx, node); break;
-  case NODE_DIV       : facile_produce_div(ctx, node); break;
-  case NODE_NUMBER    : facile_produce_number(ctx, node); break;
-  case NODE_IDENTIFIER: facile_produce_identifier(ctx, node); break;
+  case NODE_ADD           : facile_produce_add(ctx, node); break;
+  case NODE_SUB           : facile_produce_sub(ctx, node); break;
+  case NODE_MUL           : facile_produce_mul(ctx, node); break;
+  case NODE_DIV           : facile_produce_div(ctx, node); break;
+  case NODE_NUMBER        : facile_produce_number(ctx, node); break;
+  case NODE_IDENTIFIER    : facile_produce_identifier(ctx, node); break;
+  case NODE_STRING_LITERAL: facile_produce_string_literal(ctx, node); break;
   // boolean
   case NODE_TRUE          : facile_produce_true(ctx, node); break;
   case NODE_FALSE         : facile_produce_false(ctx, node); break;

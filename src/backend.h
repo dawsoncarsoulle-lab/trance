@@ -17,6 +17,7 @@ void facile_produce_break(CodeGenContext *ctx, FacileNode *node);
 void facile_produce_continue(CodeGenContext *ctx, FacileNode *node);
 void facile_produce_print(CodeGenContext *ctx, FacileNode *node);
 void facile_produce_read(CodeGenContext *ctx, FacileNode *node);
+void facile_produce_string_literal(CodeGenContext *ctx, FacileNode *node);
 
 // boolean
 void facile_produce_add(CodeGenContext *ctx, FacileNode *node);

@@ -1,0 +1,5 @@
+read a_number;                      // default is integer
+read a_specific_number : integer;   // can be typed
+read hello : string;                // can accept strings too
+print a_number + a_specific_number;
+print hello;

@@ -1,0 +1,5 @@
+n : integer := 42;
+s : string := "The answer is";
+
+print s;
+print n;

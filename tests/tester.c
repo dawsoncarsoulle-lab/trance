@@ -9,8 +9,6 @@
 #define FACILE_PATH "../build/facile"
 #define ASSEMBLER "ilasm"
 
-#define TEST_NAME(test_name) (test_name, #test_name)
-
 #define SENDS(...) {__VA_ARGS__, NULL}
 #define GETS(...) {__VA_ARGS__, NULL}
 
@@ -129,34 +127,41 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
   return passed;
 }
 
-TEST_NON_INTERACTIVE(test_booleans, "1", "2")
-TEST_NON_INTERACTIVE(test_math, "25")
-TEST_INTERACTIVE(test_read_empty, SENDS("0"), GETS("0"))
-TEST_INTERACTIVE(test_read_math, SENDS("20"), GETS("30"))
-TEST_NON_INTERACTIVE(test_read_expr_precedence, "50", "60", "10")
-TEST_NON_INTERACTIVE(test_if_condition, "5")
-TEST_NON_INTERACTIVE(test_if_else, "5", "3")
-TEST_NON_INTERACTIVE(test_while_loop, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
-TEST_NON_INTERACTIVE(test_while_loop_nested, "5", "5", "4", "3", "2", "1", "4", "3", "2", "1")
-TEST_INTERACTIVE(test_largest_common_denominator, SENDS("387", "129"), GETS("129"))
-TEST_NON_INTERACTIVE(test_elseif, "3")
-TEST_NON_INTERACTIVE(test_break_continue, "1", "3")
+// need to wrap args in () for proper VA_ARGS separation
+
+#define LIST_OF_TESTS(X)                                                                           \
+  X(NON, test_booleans, ("1", "2"))                                                                \
+  X(NON, test_math, ("25"))                                                                        \
+  X(NON, test_types, ("The answer is", "42"))                                                      \
+  X(INT, test_read_empty, (SENDS("0")), (GETS("0")))                                               \
+  X(INT, test_read_math, (SENDS("20")), (GETS("30")))                                              \
+  X(NON, test_read_expr_precedence, ("50", "60", "10"))                                            \
+  X(NON, test_if_condition, ("5"))                                                                 \
+  X(NON, test_if_else, ("5", "3"))                                                                 \
+  X(NON, test_while_loop, ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9"))                      \
+  X(NON, test_while_loop_nested, ("5", "5", "4", "3", "2", "1", "4", "3", "2", "1"))               \
+  X(INT, test_largest_common_denominator, (SENDS("387", "129")), (GETS("129")))                    \
+  X(NON, test_elseif, ("3"))                                                                       \
+  X(NON, test_break_continue, ("1", "3"))                                                          \
+  X(INT, test_types_intake, (SENDS("1", "2", "bonjur")), (GETS("3", "bonjur")))
+
+#define STRIP_PARENS(...) __VA_ARGS__
+#define DEFINE_TEST(type, name, ...) X_##type(name, __VA_ARGS__)
+
+#define X_NON(name, args) TEST_NON_INTERACTIVE(name, STRIP_PARENS args)
+#define X_INT(name, sends, gets) TEST_INTERACTIVE(name, STRIP_PARENS sends, STRIP_PARENS gets)
+
+LIST_OF_TESTS(DEFINE_TEST)
+
+#undef X_NON
+#undef X_INT
 
 typedef int (*test_func)(void);
 
 int main() {
-  test_func tests[] = {test_booleans,
-                       test_math,
-                       test_read_empty,
-                       test_read_math,
-                       test_read_expr_precedence,
-                       test_if_condition,
-                       test_if_else,
-                       test_while_loop,
-                       test_while_loop_nested,
-                       test_largest_common_denominator,
-                       test_elseif,
-                       test_break_continue};
+
+#define REGISTER_TEST(type, name, ...) name,
+  test_func tests[] = {LIST_OF_TESTS(REGISTER_TEST)};
 
   int test_count = sizeof(tests) / sizeof(tests[0]);
   int *scoreboard = (int *)mmap(NULL, test_count * sizeof(*scoreboard), PROT_READ | PROT_WRITE,

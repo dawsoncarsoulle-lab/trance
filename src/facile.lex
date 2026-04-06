@@ -12,6 +12,7 @@
 %%
 
 ";" {return SEMICOLON;}
+":" {return COLON;}
 ":=" {return AFFECTATION;}
 "+" {return ADD;}
 "-" {return SUB;}
@@ -44,6 +45,15 @@
 "==" {return EQUALS;}
 "#" {return HASH;}
 
+"integer"   { return TYPE_INTEGER; }
+"string"    { return TYPE_STRING; }
+
+"//"[^\n]* {/* comments */}
+
+"\""[^\"]*"\"" {
+    yylval.identifier = strndup(yytext + 1, strlen(yytext) - 2);
+    return STRING_LITERAL;
+}
 
 [0-9]+ {
     yylval.integer = atoi(yytext);

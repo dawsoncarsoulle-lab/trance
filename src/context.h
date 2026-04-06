@@ -8,6 +8,7 @@ typedef FacileNode FacileNode;
 
 typedef struct {
   FILE *stream;
+  FacileSymbol *table;
   int label_count;
   int current_loop_label;
 } CodeGenContext;
