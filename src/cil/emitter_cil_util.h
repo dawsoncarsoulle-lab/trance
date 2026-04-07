@@ -1,7 +1,4 @@
-#ifndef _EMITTER_CIL_UTIL_H
-#define _EMITTER_CIL_UTIL_H
-
-#include "../context.h"
+#ifdef CODEGEN_IMPLEMENTATION
 
 static inline void _emit_op(CodeGenContext *ctx, const char *opcode) {
   fprintf(ctx->stream, "\t%s\n", opcode);
@@ -17,4 +14,4 @@ static inline void _emit_raw_branch(CodeGenContext *ctx, const char *op, const c
   fprintf(ctx->stream, "\t%s %s_%d\n", op, prefix, label_id);
 }
 
-#endif // _EMITTER_CIL_UTIL_H
+#endif

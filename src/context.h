@@ -4,8 +4,6 @@
 #include "ast.h"
 #include <stdio.h>
 
-typedef FacileNode FacileNode;
-
 typedef struct {
   FILE *stream;
   FacileSymbol *table;

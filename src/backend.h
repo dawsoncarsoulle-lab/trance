@@ -1,7 +1,6 @@
 #ifndef _BACKEND_H_
 #define _BACKEND_H_
 
-#include "ast.h"
 #include "context.h"
 
 // "environment" setup

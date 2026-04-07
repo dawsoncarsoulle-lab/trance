@@ -1,7 +1,5 @@
-#ifndef _EMITTER_CIL_H_
-#define _EMITTER_CIL_H_
+#ifdef CODEGEN_IMPLEMENTATION
 
-#include "../context.h"
 #include "emitter_cil_util.h"
 
 static inline void emit_load_int(CodeGenContext *ctx, int value) {
@@ -103,4 +101,4 @@ static inline void emit_locals_init_end(CodeGenContext *ctx) { fprintf(ctx->stre
 // end code section
 static inline void emit_method_main_end(CodeGenContext *ctx) { fprintf(ctx->stream, "\tret\n}\n"); }
 
-#endif // _EMITTER_CIL_H_
+#endif

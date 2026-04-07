@@ -34,7 +34,7 @@ typedef enum {
   NODE_GREATER_THAN,
   NODE_LESSER_EQUALS,
   NODE_GREATER_EQUALS,
-} ASTNodeType;
+} FacileNodeType;
 
 typedef enum { T_INT, T_STR } DataType;
 
@@ -47,14 +47,14 @@ typedef struct {
 #define NODE_MAX_CHILDREN 3
 
 typedef struct FacileNode {
-  ASTNodeType type;
+  FacileNodeType type;
   int data; // integer data or FacileSymbol value (identifier)
   char *string_lit;
   DataType evaluated_type;
   struct FacileNode *children[NODE_MAX_CHILDREN];
 } FacileNode;
 
-static inline FacileNode *facile_create_node(ASTNodeType type) {
+static inline FacileNode *facile_create_node(FacileNodeType type) {
   FacileNode *node = (FacileNode *)malloc(sizeof(*node));
   node->type = type;
   node->data = 0;

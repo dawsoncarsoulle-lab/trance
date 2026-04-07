@@ -1,16 +1,8 @@
-#ifndef _BACKEND_CIL_H_
-#define _BACKEND_CIL_H_
+#ifdef CODEGEN_IMPLEMENTATION
 
 #include "emitter_cil.h"
 
-#ifndef COMPILER_IMPLEMENTATION
-static void produce_code(CodeGenContext *ctx, FacileNode *node);
-#endif
-
-#ifndef PROGRAM_NAME
 #define PROGRAM_NAME "DefaultName"
-#endif
-
 #define DEFAULT_MAX_STACK "8"
 
 void facile_begin_program(CodeGenContext *ctx, int local_count) {
@@ -181,4 +173,4 @@ void facile_produce_lt(CodeGenContext *ctx, FacileNode *node) {
   BINARY_OPERATION_NODES(ctx, node, emit_clt);
 }
 
-#endif // _BACKEND_CIL_H_
+#endif

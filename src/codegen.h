@@ -3,14 +3,7 @@
 
 #include "backend.h"
 
-static void produce_code(CodeGenContext *ctx, FacileNode *node);
-
-#ifdef CODEGEN_IMPLEMENTATION
-#ifdef BACKEND_LANGUAGE__CIL
-#include "cil/backend_cil.h"
-#endif
-
-static void produce_code(CodeGenContext *ctx, FacileNode *node) {
+void produce_code(CodeGenContext *ctx, FacileNode *node) {
   if (node == NULL)
     return;
 
@@ -48,6 +41,11 @@ static void produce_code(CodeGenContext *ctx, FacileNode *node) {
   default: fprintf(stderr, "ERROR: unknown AST node type\n"); break;
   }
 }
+
+#ifdef CODEGEN_IMPLEMENTATION
+#ifdef BACKEND_LANGUAGE__CIL
+#include "cil/backend_cil.h"
+#endif
 
 #endif // CODEGEN_IMPLEMENTATION
 #endif // _CODEGEN_H_
