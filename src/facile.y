@@ -11,6 +11,7 @@
     int yylex(void);
     void yyerror(const char *s);
 
+    #define DEFAULT_TYPE T_INT
     FacileNode *ast_root_node = NULL;
     FacileSymbol *table = NULL;
 
@@ -25,6 +26,14 @@
         do { facile_node_add_child(yyval.node, left); facile_node_add_child(yyval.node, right); } while (0);
     #define _WITH_CHILDREN_TERNARY(first, second, third) \
         do { facile_node_add_child(yyval.node, first); facile_node_add_child(yyval.node, second); facile_node_add_child(yyval.node, third); } while (0);
+
+    #define FATAL_ERROR(error_message) do { yyerror(error_message); YYABORT; } while(0)
+    #define FATAL_ERROR_DYNAMIC(error_message_format, ...) do {                                             \
+        char error_message_buffer[256];                                                                     \
+        snprintf(error_message_buffer, sizeof(error_message_buffer), error_message_format, ##__VA_ARGS__);  \
+        yyerror(error_message_buffer);                                                                      \
+        YYABORT;                                                                                            \
+    } while(0)
 
     int facile_symbol_declaration(char *name, DataType type) {
         if (shgeti(table, name) != -1) return -1; // case exists already
@@ -44,7 +53,24 @@
         return table[idx].value;
     }
 
-%}
+    FacileNode* facile_resolve_identifier_node(char *name, DataType type) {
+        ptrdiff_t idx = shgeti(table, name);
+
+        int id;
+        if (idx == -1)
+            id = facile_symbol_declaration(name, type);
+        else {
+            type = (DataType)table[idx].type;
+            id = facile_symbol_lookup(name);
+        }
+
+        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+        id_node->data = id;
+        id_node->evaluated_type = type;
+
+        return id_node;
+    }
+    %}
 
 %union {
     int integer;
@@ -64,12 +90,12 @@ PARENTHESIS_L PARENTHESIS_R AFFECTATION PRINT READ NOT AND OR GREATER_THAN
 LESSER_THAN HASH EQUALS _FALSE _TRUE GREATER_EQUALS LESSER_EQUALS ADD SUB MUL DIV
 TYPE_INTEGER TYPE_STRING COLON
 
-// mirror node enum found in codegen.h
+// mirror node enum found in ast.h
 // syntax transformation example: identifier -> NODE_IDENTIFIER
 %type<node> program block instruction expr boolean
 %type<node> if_statement else_if_statement while_statement
 %type<node> read_call print_call affectation
-%type<data_type> type_spec
+%type<data_type> type_spec // exception
 
 
 %left OR
@@ -110,19 +136,14 @@ TYPE_INTEGER TYPE_STRING COLON
         }
         | IDENTIFIER {
             ptrdiff_t idx = shgeti(table, $1);
-            if (idx == -1) {
-                char error_msg[256];
-                snprintf(error_msg, sizeof(error_msg), "Error: Undeclared variable '%s' in expression", $1);
-                yyerror(error_msg);
-                YYABORT;
-            }
+            if (idx == -1) FATAL_ERROR_DYNAMIC("Undeclared variable '%s' in expression", $1);
 
-            DataType t = (DataType)table[idx].type;
+            DataType type = (DataType)table[idx].type;
             int id = facile_symbol_lookup($1);
 
             $$ = facile_create_node(NODE_IDENTIFIER);
             $$->data = id;
-            $$->evaluated_type = t;
+            $$->evaluated_type = type;
         }
         | STRING_LITERAL {
                 $$ = facile_create_node(NODE_STRING_LITERAL);
@@ -160,7 +181,7 @@ TYPE_INTEGER TYPE_STRING COLON
         |
         else_if_statement ELSEIF boolean THEN block {
             $$ = $1;
-            FacileNode *new_if = facile_create_node(NODE_IF_STATEMENT);
+            FacileNode* new_if = facile_create_node(NODE_IF_STATEMENT);
             facile_node_add_child(new_if, $3);
             facile_node_add_child(new_if, $5);
 
@@ -189,71 +210,42 @@ TYPE_INTEGER TYPE_STRING COLON
         | PARENTHESIS_L boolean PARENTHESIS_R { $$ = $2; }
         ;
 
+    // WARNING: types are inherently unsafe since runtime checks don't exist
     read_call: READ IDENTIFIER SEMICOLON {
-        int id;
-            DataType t;
-            ptrdiff_t idx = shgeti(table, $2);
+            FacileNode* id_node = facile_resolve_identifier_node($2, DEFAULT_TYPE);
+            PARENT_(NODE_READ)_WITH_CHILD(id_node);
+        }
+        | READ IDENTIFIER COLON type_spec SEMICOLON {
+            int id = facile_symbol_declaration($2, $4);
 
-            if (idx == -1) {
-                // 1. Implicit Declaration: It's new, so we instantiate it.
-                // Defaulting to T_INT here.
-                t = T_INT;
-                id = facile_symbol_declaration($2, t);
-            } else {
-                // 2. Existing Identifier: Just grab the info.
-                t = (DataType)table[idx].type;
-                id = facile_symbol_lookup($2);
-            }
-
-            FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
+            FacileNode* id_node = facile_create_node(NODE_IDENTIFIER);
             id_node->data = id;
-            id_node->evaluated_type = t;
+            id_node->evaluated_type = $4;
 
             PARENT_(NODE_READ)_WITH_CHILD(id_node);
-    }
-    | READ IDENTIFIER COLON type_spec SEMICOLON {
-        int id = facile_symbol_declaration($2, $4);
-
-        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
-        id_node->data = id;
-        id_node->evaluated_type = $4;
-
-        PARENT_(NODE_READ)_WITH_CHILD(id_node);
-    };
+        };
     print_call: PRINT expr SEMICOLON { PARENT_(NODE_PRINT)_WITH_CHILD($2); };
     affectation:
         IDENTIFIER AFFECTATION expr SEMICOLON {
-        int id;
-        DataType t = T_INT; // default type if no type given
-        ptrdiff_t idx = shgeti(table, $1);
+            FacileNode* id_node = facile_resolve_identifier_node($1, $3->evaluated_type);
 
-        if (idx == -1)
-            id = facile_symbol_declaration($1, t);
-        else {
-            t = (DataType)table[idx].type;
-            id = facile_symbol_lookup($1);
+            if (id_node->evaluated_type != $3->evaluated_type) FATAL_ERROR("Type mismatch during affectation");
+
+            PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3);
         }
+        | IDENTIFIER COLON type_spec AFFECTATION expr SEMICOLON {
+            if ($3 != $5->evaluated_type) FATAL_ERROR("Type mismatch during affectation");
 
-        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
-        id_node->data = id;
-        id_node->evaluated_type = t;
+            int id = facile_symbol_declaration($1, $3);
+            if (id == -1) FATAL_ERROR("Variable re-declaration is not allowed");
 
-        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3);
-    }
-    | IDENTIFIER COLON type_spec AFFECTATION expr SEMICOLON {
-        int id = facile_symbol_declaration($1, $3);
-        if (id == -1) {
-            yyerror("Error: Variable re-declaration is not allowed.");
-            YYABORT;
+            FacileNode* id_node = facile_create_node(NODE_IDENTIFIER);
+            id_node->data = id;
+            id_node->evaluated_type = $3;
+
+            PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $5);
         }
-
-        FacileNode *id_node = facile_create_node(NODE_IDENTIFIER);
-        id_node->data = id;
-        id_node->evaluated_type = $3;
-
-        PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $5);
-    }
-    ;
+        ;
 
     type_spec:
         TYPE_INTEGER { $$ = T_INT; }
@@ -265,7 +257,7 @@ extern char *yytext;
 extern int yylineno;
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s'\nGiven error is : %s\n", yylineno, yytext, s);
+    fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s' -> %s\n", yylineno, yytext, s);
 }
 
 

@@ -1,0 +1,4 @@
+x := "Hello, World";
+y : string := "Hello, World too";
+x := y;
+print x;

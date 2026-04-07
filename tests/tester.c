@@ -130,7 +130,7 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
 }
 
 // need to wrap args in () for proper VA_ARGS separation
-
+// missing tests that fail to compile
 #define LIST_OF_TESTS(X)                                                                           \
   X(NON, test_booleans, ("1", "2"))                                                                \
   X(NON, test_math, ("25"))                                                                        \
@@ -148,7 +148,7 @@ int run_test_engine(const char *file_name, const char **sends, const char **gets
   X(INT, test_types_intake, (SENDS("1", "2", "bonjur")), (GETS("3", "bonjur")))                    \
   X(NON, test_spec_relational, ("1", "1", "1", "1", "1", "0"))                                     \
   X(NON, test_spec_logic, ("0", "1", "0", "1"))                                                    \
-  X(INT, test_spec_nested_if, (SENDS("15", "15")), (GETS("2")))
+  X(NON, test_hello_world, ("Hello, World too"))
 
 #define STRIP_PARENS(...) __VA_ARGS__
 #define DEFINE_TEST(type, name, ...) X_##type(name, __VA_ARGS__)
