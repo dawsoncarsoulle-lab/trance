@@ -1,8 +1,11 @@
 %{
     #include <stdio.h>
+    #include <ctype.h>
 
     #define STB_DS_IMPLEMENTATION
     #include "../include/stb_ds.h"
+
+    #include "../include/error.h"
 
     #define CODEGEN_IMPLEMENTATION
     #define BACKEND_LANGUAGE__CIL
@@ -26,14 +29,6 @@
         do { facile_node_add_child(yyval.node, left); facile_node_add_child(yyval.node, right); } while (0);
     #define _WITH_CHILDREN_TERNARY(first, second, third) \
         do { facile_node_add_child(yyval.node, first); facile_node_add_child(yyval.node, second); facile_node_add_child(yyval.node, third); } while (0);
-
-    #define FATAL_ERROR(error_message) do { yyerror(error_message); YYABORT; } while(0)
-    #define FATAL_ERROR_DYNAMIC(error_message_format, ...) do {                                             \
-        char error_message_buffer[256];                                                                     \
-        snprintf(error_message_buffer, sizeof(error_message_buffer), error_message_format, ##__VA_ARGS__);  \
-        yyerror(error_message_buffer);                                                                      \
-        YYABORT;                                                                                            \
-    } while(0)
 
     int facile_symbol_declaration(char *name, DataType type) {
         if (shgeti(table, name) != -1) return -1; // case exists already
@@ -136,7 +131,7 @@ TYPE_INTEGER TYPE_STRING COLON
         }
         | IDENTIFIER {
             ptrdiff_t idx = shgeti(table, $1);
-            if (idx == -1) FATAL_ERROR_DYNAMIC("Undeclared variable '%s' in expression", $1);
+            if (idx == -1) FATAL_ERROR_DYNAMIC(FACILE_ERR(UNDECLARED_VAR), $1);
 
             DataType type = (DataType)table[idx].type;
             int id = facile_symbol_lookup($1);
@@ -150,10 +145,10 @@ TYPE_INTEGER TYPE_STRING COLON
                 $$->string_lit = $1;
                 $$->evaluated_type = T_STR;
         }
-        | expr ADD expr     { PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); }
-        | expr SUB expr     { PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); }
-        | expr MUL expr     { PARENT_(NODE_MUL)_WITH_CHILDREN_BINARY($1, $3); }
-        | expr DIV expr     { PARENT_(NODE_DIV)_WITH_CHILDREN_BINARY($1, $3); }
+        | expr ADD expr     { FAIL_ON_NON_NUMERIC($1,$3); PARENT_(NODE_ADD)_WITH_CHILDREN_BINARY($1, $3); $$->evaluated_type = T_INT; }
+        | expr SUB expr     { FAIL_ON_NON_NUMERIC($1,$3); PARENT_(NODE_SUB)_WITH_CHILDREN_BINARY($1, $3); $$->evaluated_type = T_INT; }
+        | expr MUL expr     { FAIL_ON_NON_NUMERIC($1,$3); PARENT_(NODE_MUL)_WITH_CHILDREN_BINARY($1, $3); $$->evaluated_type = T_INT; }
+        | expr DIV expr     { FAIL_ON_NON_NUMERIC($1,$3); PARENT_(NODE_DIV)_WITH_CHILDREN_BINARY($1, $3); $$->evaluated_type = T_INT; }
         | PARENTHESIS_L expr PARENTHESIS_R { $$ = $2; }
         ;
 
@@ -175,9 +170,7 @@ TYPE_INTEGER TYPE_STRING COLON
         ;
 
     else_if_statement:
-        ELSEIF boolean THEN block {
-            PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4);
-        }
+        ELSEIF boolean THEN block { PARENT_(NODE_IF_STATEMENT)_WITH_CHILDREN_BINARY($2, $4); }
         |
         else_if_statement ELSEIF boolean THEN block {
             $$ = $1;
@@ -218,6 +211,8 @@ TYPE_INTEGER TYPE_STRING COLON
         | READ IDENTIFIER COLON type_spec SEMICOLON {
             int id = facile_symbol_declaration($2, $4);
 
+            if (id == -1) FATAL_ERROR(FACILE_ERR(REDECLARATION));
+
             FacileNode* id_node = facile_create_node(NODE_IDENTIFIER);
             id_node->data = id;
             id_node->evaluated_type = $4;
@@ -229,15 +224,15 @@ TYPE_INTEGER TYPE_STRING COLON
         IDENTIFIER AFFECTATION expr SEMICOLON {
             FacileNode* id_node = facile_resolve_identifier_node($1, $3->evaluated_type);
 
-            if (id_node->evaluated_type != $3->evaluated_type) FATAL_ERROR("Type mismatch during affectation");
+            if (id_node->evaluated_type != $3->evaluated_type) FATAL_ERROR(FACILE_ERR(TYPE_MISMATCH));
 
             PARENT_(NODE_AFFECTATION)_WITH_CHILDREN_BINARY(id_node, $3);
         }
         | IDENTIFIER COLON type_spec AFFECTATION expr SEMICOLON {
-            if ($3 != $5->evaluated_type) FATAL_ERROR("Type mismatch during affectation");
+            if ($3 != $5->evaluated_type) FATAL_ERROR(FACILE_ERR(TYPE_MISMATCH));
 
             int id = facile_symbol_declaration($1, $3);
-            if (id == -1) FATAL_ERROR("Variable re-declaration is not allowed");
+            if (id == -1) FATAL_ERROR(FACILE_ERR(REDECLARATION));
 
             FacileNode* id_node = facile_create_node(NODE_IDENTIFIER);
             id_node->data = id;
@@ -260,10 +255,7 @@ void yyerror(const char *s) {
     fprintf(stderr, "Syntax Error at line %d near unexpected token: '%s' -> %s\n", yylineno, yytext, s);
 }
 
-
-#include <ctype.h>
 #define FACILE_FILE_EXTENSION ".facile"
-
 int main(int argc, char * argv[]) {
     if (argc != 2) return EXIT_FAILURE;
 
