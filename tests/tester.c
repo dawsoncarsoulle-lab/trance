@@ -1,4 +1,5 @@
 #include "../include/error.h"
+#include "../include/subprocess.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,36 +7,73 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define TEST_PROCESS_OPTS                                                      \
+  (subprocess_option_inherit_environment | subprocess_option_search_user_path)
+#define CLR_RUNTIME_EXEC "mono"
+#define FACILE_COMPILER_PATH "../build/facile"
+
+// assembler exec used in Makefile, done before test running.
+
 int run_test(const char *name, int is_err, const char **sends,
              const char **gets, const char *expected_err) {
-  char cmd[1024] = {0}, out[2048] = {0}, line[256];
-  int fail = 0, i = 0;
+  char out[256] = {0};
+  char line[256], arg_file[256];
+  int fail = 0, i = 0, status = 0;
 
+  // faciel compiler, facile_file
+  const char *command_line[4] = {0};
+
+  if (is_err) {
+    snprintf(arg_file, sizeof(arg_file), "%s.facile", name);
+    command_line[0] = FACILE_COMPILER_PATH;
+  } else {
+    snprintf(arg_file, sizeof(arg_file), "build/%s.exe", name);
+    command_line[0] = CLR_RUNTIME_EXEC;
+  }
+  command_line[1] = arg_file;
+
+  int options = TEST_PROCESS_OPTS;
   if (is_err)
-    snprintf(cmd, sizeof(cmd), "../build/facile %s.facile 2>&1", name);
-  else {
-    strcpy(cmd, "printf '");
-    for (int j = 0; sends && sends[j]; j++)
-      snprintf(cmd + strlen(cmd), 1024 - strlen(cmd), "%s\\n", sends[j]);
-    snprintf(cmd + strlen(cmd), 1024 - strlen(cmd), "' | mono build/%s.exe",
-             name);
+    options |= subprocess_option_combined_stdout_stderr;
+
+  struct subprocess_s process;
+  if (subprocess_create(command_line, options, &process) != 0) {
+    printf("\033[0;31m[FAIL]\033[0m %s (Failed to launch process)\n", name);
+    return 1;
   }
 
-  FILE *p = popen(cmd, "r");
-  while (fgets(line, sizeof(line), p)) {
-    line[strcspn(line, "\r\n")] = 0;
-    if (!line[0])
-      continue;
-
-    if (is_err)
-      strcat(out, line);
-    else if (!gets || !gets[i] || strcmp(line, gets[i++]))
-      fail = 1;
+  if (!is_err && sends) {
+    FILE *p_stdin = subprocess_stdin(&process);
+    if (p_stdin) {
+      for (int j = 0; sends[j]; j++)
+        fprintf(p_stdin, "%s\n", sends[j]);
+      fclose(p_stdin);
+      process.stdin_file = NULL;
+    }
   }
-  int status = pclose(p);
+
+  FILE *p_stdout = subprocess_stdout(&process);
+  if (p_stdout) {
+    while (fgets(line, sizeof(line), p_stdout)) {
+      line[strcspn(line, "\r\n")] = 0;
+      if (!line[0])
+        continue;
+
+      if (is_err) {
+        if (strlen(out) + strlen(line) < sizeof(out) - 1)
+          strcat(out, line);
+      } else {
+        if (!gets || !gets[i] || strcmp(line, gets[i++]))
+          fail = 1;
+      }
+    }
+  }
+
+  subprocess_join(&process, &status);
+  subprocess_destroy(&process);
 
   if (is_err)
-    fail = status == 0 || !strstr(out, expected_err);
+    fail = (status == 0) || !strstr(out, expected_err);
   else if (status != 0 || (gets && gets[i]))
     fail = 1;
 
@@ -80,8 +118,8 @@ int run_test(const char *name, int is_err, const char **sends,
   X(NON, test_spec_relational, ("1", "1", "1", "1", "1", "0"))                 \
   X(NON, test_spec_logic, ("0", "1", "0", "1"))                                \
   X(NON, test_hello_world, ("Hello, World too"))                               \
-  X(ERR, test_type_mismatch, FACILE_ERR(NON_NUMERIC_MATH))                     \
-  X(ERR, test_redeclaration, FACILE_ERR(REDECLARATION))
+  X(COMP, test_type_mismatch, FACILE_ERR(NON_NUMERIC_MATH))                    \
+  X(COMP, test_redeclaration, FACILE_ERR(REDECLARATION))
 
 #define SENDS(...) {__VA_ARGS__, NULL}
 #define GETS(...) {__VA_ARGS__, NULL}
@@ -92,7 +130,7 @@ int run_test(const char *name, int is_err, const char **sends,
 #define X_NON(name, args) TEST_NON_INTERACTIVE(name, STRIP_PARENS args)
 #define X_INT(name, sends, gets)                                               \
   TEST_INTERACTIVE(name, STRIP_PARENS sends, STRIP_PARENS gets)
-#define X_ERR(name, err) TEST_COMPILATION_FAIL(name, err)
+#define X_COMP(name, err) TEST_COMPILATION_FAIL(name, err)
 
 LIST_OF_TESTS(DEFINE_TEST)
 
@@ -113,12 +151,10 @@ int main() {
   for (int i = 0; i < test_count; i++)
     scoreboard[i] = -1;
 
-  for (int i = 0; i < test_count; i++) {
-    if (fork() == 0) {
-      scoreboard[i] = tests[i]();
-      exit(0);
-    }
-  }
+  for (int i = 0; i < test_count; i++)
+    if (fork() == 0)
+      scoreboard[i] = tests[i](), exit(0);
+
   while (wait(NULL) > 0)
     ;
 

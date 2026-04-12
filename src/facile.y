@@ -313,7 +313,7 @@ int main(int argc, char * argv[]) {
         if (ast_root_node != NULL) facile_node_free(ast_root_node);
 
     } else {
-        printf("Compilation failed due to syntax errors.\n");
+        fprintf(stderr, "Compilation failed due to syntax errors.\n");
         return EXIT_FAILURE;
     }
     shfree(table);
